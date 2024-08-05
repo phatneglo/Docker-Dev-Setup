@@ -1,5 +1,7 @@
 # Ignore data directories
-*/data/
+*/data/*
+*/config/
+*/log/
 
 # Don't ignore .env files (for development reference)
 !*.env
