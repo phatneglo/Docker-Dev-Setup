@@ -1,0 +1,19 @@
+services:
+  emqx:
+    image: emqx/emqx:${EMQX_VERSION}
+    ports:
+      - 1883:1883 # MQTT port
+      - 8083:8083 # MQTT/WebSocket port
+      - 8084:8084 # MQTT/SSL port
+      - 8883:8883 # MQTT/SSL port
+      - 18083:18083 # Dashboard port
+    volumes:
+      - ./data:/opt/emqx/data
+      - ./log:/opt/emqx/log
+    environment:
+      - EMQX_NAME=${EMQX_NAME}
+      - EMQX_HOST=${EMQX_HOST}
+
+networks:
+  default:
+    name: emqx_network

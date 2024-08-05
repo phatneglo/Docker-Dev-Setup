@@ -1,0 +1,12 @@
+# Ignore data directories
+*/data/
+
+# Don't ignore .env files (for development reference)
+!*.env
+
+# Ignore logs
+*/log/
+
+# Ignore system files
+.DS_Store
+Thumbs.db
