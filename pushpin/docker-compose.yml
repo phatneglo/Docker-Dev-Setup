@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  pushpin:
+    image: fanout/pushpin:latest
+    ports:
+      - "7999:7999"
+    volumes:
+      - ./config:/etc/pushpin
+    command: pushpin --merge-output --port=7999
+    networks:
+      - pushpin_network
+
+networks:
+  pushpin_network:
+    name: pushpin_network

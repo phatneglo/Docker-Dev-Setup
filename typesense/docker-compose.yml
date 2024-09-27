@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  typesense:
+    image: typesense/typesense:${TYPESENSE_VERSION}
+    ports:
+      - "8108:8108"
+    volumes:
+      - ./data:${TYPESENSE_DATA_DIR}
+    environment:
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY}
+      TYPESENSE_DATA_DIR: ${TYPESENSE_DATA_DIR}
+    command: "--enable-cors"
+
+networks:
+  default:
+    name: typesense_network

@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.14.0
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=${ELASTICSEARCH_HOSTS}
+      - ELASTICSEARCH_USERNAME=${ELASTICSEARCH_USERNAME}
+      - ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD}
+    ports:
+      - "5601:5601"
+    networks:
+      - elasticsearch_network
+    volumes:
+      - ./data:/usr/share/kibana/data
+
+networks:
+  elasticsearch_network:
+    external: true
+    name: elasticsearch_network

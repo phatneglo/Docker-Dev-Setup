@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  arangodb:
+    image: arangodb:${ARANGO_VERSION}
+    environment:
+      ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD}
+    ports:
+      - "8529:8529"
+    volumes:
+      - ./data:/var/lib/arangodb3
+    command: arangod --server.endpoint tcp://0.0.0.0:8529
+
+networks:
+  default:
+    name: arangodb_network

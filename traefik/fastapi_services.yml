@@ -1,0 +1,15 @@
+http:
+  routers:
+    fastapi:
+      rule: "Host(`localhost`) || Host(`192.168.100.9`)"
+      service: fastapi
+      entryPoints:
+        - web
+
+  services:
+    fastapi:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:8000"
+          - url: "http://host.docker.internal:8001"
+          - url: "http://host.docker.internal:8002"

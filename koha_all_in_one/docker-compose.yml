@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  koha:
+    image: digibib/koha:latest  # Ensure this is the correct tag or revision
+    container_name: koha_docker
+    environment:
+      KOHA_INSTANCE: ${KOHA_INSTANCE}
+      KOHA_ADMINUSER: ${KOHA_ADMINUSER}
+      KOHA_ADMINPASS: ${KOHA_ADMINPASS}
+      KOHA_DB_HOST: ${KOHA_DB_HOST}
+      KOHA_DB_PORT: ${KOHA_DB_PORT}
+      KOHA_DB_USER: ${KOHA_DB_USER}
+      KOHA_DB_PASS: ${KOHA_DB_PASS}
+      SIP_WORKERS: 3
+      SIP_AUTOUSER1: autouser
+      SIP_AUTOPASS1: autopass
+    ports:
+      - "6001:6001"  # SIP server
+      - "${KOHA_OPAC_PORT}:${KOHA_OPAC_PORT}"  # OPAC
+      - "${KOHA_INTRANET_PORT}:${KOHA_INTRANET_PORT}"  # Intranet
+    networks:
+      - koha_network
+    depends_on:
+      - koha_mysql
+
+  koha_mysql:
+    image: mariadb:10.3
+    container_name: koha_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - koha_mysql_data:/var/lib/mysql
+    networks:
+      - koha_network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:${PHPMYADMIN_VERSION}
+    container_name: phpmyadmin
+    environment:
+      PMA_HOST: ${KOHA_DB_HOST}
+      PMA_PORT: ${KOHA_DB_PORT}
+      PMA_USER: ${MYSQL_USER}
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
+      PMA_ARBITRARY: 1
+    ports:
+      - "${PHPMYADMIN_PORT}:80"
+    depends_on:
+      - koha_mysql
+    networks:
+      - koha_network
+
+volumes:
+  koha_mysql_data:
+
+networks:
+  koha_network:
+    driver: bridge

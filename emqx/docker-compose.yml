@@ -10,6 +10,7 @@ services:
     volumes:
       - ./data:/opt/emqx/data
       - ./log:/opt/emqx/log
+      - ./custom_emqx.conf:/opt/emqx/etc/emqx.conf
     environment:
       - EMQX_NAME=${EMQX_NAME}
       - EMQX_HOST=${EMQX_HOST}

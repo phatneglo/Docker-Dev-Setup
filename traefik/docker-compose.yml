@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    restart: always
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./traefik.yml:/etc/traefik/traefik.yml"
+      - "./fastapi_services.yml:/etc/traefik/dynamic_conf/fastapi_services.yml"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
