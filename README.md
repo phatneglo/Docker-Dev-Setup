@@ -48,6 +48,7 @@ D:\DOCKER_CONTAINER_FILES\
 5. **MinIO (Working)**: Object storage for active data.
 6. **Qdrant**: Vector similarity search engine.
 7. **Redis**: In-memory data structure store, used as a database, cache, and message broker.
+8. **ClickHouse**: Open-source column-oriented database management system.
 
 ## Setup and Running
 
@@ -93,6 +94,13 @@ D:\DOCKER_CONTAINER_FILES\
 
 ### Redis
 - Port: 6379
+
+### ClickHouse
+- HTTP interface: 8123
+- Native TCP interface: 9000
+- MySQL protocol: 9004
+- PostgreSQL protocol: 9005
+- Inter-server communication: 9009
 
 ## Setup for Different Projects
 
