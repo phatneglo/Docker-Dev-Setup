@@ -1,0 +1,13 @@
+services:
+  emqx:
+    image: n8nio/n8n:${N8N_VERSION}
+    ports:
+      - 5678:5678 # MQTT port
+    volumes:
+      - ./data:/home/node/.n8n
+
+    environment:
+      - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=${N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE}
+networks:
+  default:
+    name: n8n_network
