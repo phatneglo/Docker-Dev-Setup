@@ -9,6 +9,12 @@
 # Ignore logs
 */log/
 
+# OnlyOffice specific directories
+onlyoffice/logs/
+onlyoffice/postgresql-data/
+onlyoffice/rabbitmq-data/
+onlyoffice/redis-data/
+
 # Ignore system files
 .DS_Store
 Thumbs.db

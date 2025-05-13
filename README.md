@@ -23,6 +23,9 @@ D:\DOCKER_CONTAINER_FILES\
 ├── minio-working\
 │   ├── docker-compose.yml
 │   └── data\
+├── onlyoffice\
+│   ├── docker-compose.yml
+│   └── data\
 ├── qdrant\
 │   ├── docker-compose.yml
 │   └── data\
@@ -35,6 +38,7 @@ D:\DOCKER_CONTAINER_FILES\
 ├── kafka.env
 ├── minio-archive.env
 ├── minio-working.env
+├── onlyoffice.env
 ├── qdrant.env
 └── redis.env
 ```
@@ -46,9 +50,10 @@ D:\DOCKER_CONTAINER_FILES\
 3. **Kafka**: A distributed event streaming platform.
 4. **MinIO (Archive)**: Object storage for archival purposes.
 5. **MinIO (Working)**: Object storage for active data.
-6. **Qdrant**: Vector similarity search engine.
-7. **Redis**: In-memory data structure store, used as a database, cache, and message broker.
-8. **ClickHouse**: Open-source column-oriented database management system.
+6. **OnlyOffice**: An online office suite for document editing and collaboration.
+7. **Qdrant**: Vector similarity search engine.
+8. **Redis**: In-memory data structure store, used as a database, cache, and message broker.
+9. **ClickHouse**: Open-source column-oriented database management system.
 
 ## Setup and Running
 
@@ -87,6 +92,9 @@ D:\DOCKER_CONTAINER_FILES\
 ### MinIO (both Archive and Working)
 - API Port: 9000 (Working), 9010 (Archive)
 - Console Port: 9001 (Working), 9011 (Archive)
+
+### OnlyOffice
+- Document Server: 8088
 
 ### Qdrant
 - HTTP Port: 6333

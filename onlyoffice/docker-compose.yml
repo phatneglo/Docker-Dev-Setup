@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  onlyoffice:
+    image: onlyoffice/documentserver:latest
+    container_name: onlyoffice
+    restart: unless-stopped
+    environment:
+      - JWT_ENABLED=${JWT_ENABLED:-false}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_HEADER=${JWT_HEADER:-Authorization}
+      - DB_TYPE=${DB_TYPE:-postgres}
+      - DB_HOST=${DB_HOST:-onlyoffice-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-onlyoffice}
+      - DB_USER=${DB_USER:-onlyoffice}
+      - DB_PWD=${DB_PWD}
+      - AMQP_URI=${AMQP_URI:-amqp://guest:guest@onlyoffice-rabbitmq}
+      - REDIS_SERVER_HOST=${REDIS_SERVER_HOST:-onlyoffice-redis}
+      - REDIS_SERVER_PORT=${REDIS_SERVER_PORT:-6379}
+      - WOPI_ENABLED=false
+      - USE_UNAUTHORIZED_STORAGE=${USE_UNAUTHORIZED_STORAGE:-true}
+      - DOCSERVICE_CONNECTOR_PUBLIC_HOST=localhost
+      - DOCSERVICE_CONNECTOR_PUBLIC_PORT=8088
+      - STORAGE_PATH=${STORAGE_PATH:-/var/www/onlyoffice/Data}
+      - FILE_STORAGE_ENABLE_THROTTLING=${FILE_STORAGE_ENABLE_THROTTLING:-false}
+      - FILE_CACHE_ENABLE=${FILE_CACHE_ENABLE:-true}
+      - FILE_STORAGE_MAX_FILE_SIZE=${FILE_STORAGE_MAX_FILE_SIZE:-102400}
+      - MAX_REQUEST_LENGTH=${MAX_REQUEST_LENGTH:-102400}
+    volumes:
+      - ./data:/var/www/onlyoffice/Data
+      - ./logs:/var/log/onlyoffice
+      - ./fonts:/usr/share/fonts/truetype/custom:ro
+    ports:
+      - "8088:80"
+      - "8090:443"
+    networks:
+      - onlyoffice-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Database for OnlyOffice
+  onlyoffice-postgres:
+    image: postgres:13
+    container_name: onlyoffice-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=onlyoffice
+      - POSTGRES_USER=onlyoffice
+      - POSTGRES_PASSWORD=${DB_PWD}
+    volumes:
+      - ./postgresql-data:/var/lib/postgresql/data
+    networks:
+      - onlyoffice-network
+
+  # RabbitMQ for OnlyOffice
+  onlyoffice-rabbitmq:
+    image: rabbitmq:3-management
+    container_name: onlyoffice-rabbitmq
+    restart: unless-stopped
+    volumes:
+      - ./rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - onlyoffice-network
+
+  # Redis for OnlyOffice
+  onlyoffice-redis:
+    image: redis:6
+    container_name: onlyoffice-redis
+    restart: unless-stopped
+    volumes:
+      - ./redis-data:/data
+    networks:
+      - onlyoffice-network
+
+networks:
+  onlyoffice-network:
+    driver: bridge
