@@ -4,12 +4,11 @@ services:
     ports:
       - "${CLICKHOUSE_HTTP_PORT}:8123"
       - "${CLICKHOUSE_TCP_PORT}:9000"
-      - "${CLICKHOUSE_MYSQL_PORT}:9004"
       - "${CLICKHOUSE_POSTGRESQL_PORT}:9005"
-      - "${CLICKHOUSE_INTERSERVER_HTTP_PORT}:9009"
     volumes:
       - ./data:/var/lib/clickhouse
       - ./log:/var/log/clickhouse-server
+      - ./config/config.xml:/etc/clickhouse-server/config.d/postgresql.xml:ro
     environment:
       - CLICKHOUSE_DB=${CLICKHOUSE_DB}
       - CLICKHOUSE_USER=${CLICKHOUSE_USER}
@@ -24,6 +23,21 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    restart: unless-stopped
+
+  tabix:
+    image: spoonest/clickhouse-tabix-web-client
+    ports:
+      - "8080:80"
+    environment:
+      - CH_NAME=ClickHouse Server
+      - CH_HOST=clickhouse
+      - CH_PORT=8123
+      - CH_USER=default
+      - CH_PASSWORD=0yq5h3to9
+      - CH_DB=default
+    depends_on:
+      - clickhouse
     restart: unless-stopped
 
 networks:
