@@ -1,0 +1,27 @@
+docker exec -it nextcloud bash
+
+apt-get update && apt-get install -y nano
+
+nano /var/www/html/config/config.php
+
+paste this:
+
+
+'objectstore' => array(
+  'class' => '\\OC\\Files\\ObjectStore\\S3',
+  'arguments' => array(
+    'bucket' => 'pg-itbs-dev',
+    'autocreate' => true,
+    'key' => 'DO00WVEWRUJZDU2XGJRB',
+    'secret' => '7kAG4m6BfRE07mnnZygCwQSTqn+hpKmK0o9zVGT0D+4',
+    'hostname' => 'sgp1.digitaloceanspaces.com',
+    'port' => 443,
+    'use_ssl' => true,
+    'region' => 'sgp1',
+    'use_path_style' => false,
+    'object_prefix' => 'nextcloud/',
+  ),
+),
+
+restart:
+docker restart nextcloud
