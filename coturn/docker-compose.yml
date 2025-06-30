@@ -1,0 +1,22 @@
+services:
+  coturn:
+    image: coturn/coturn:${COTURN_VERSION}
+    container_name: coturn_server
+    restart: unless-stopped
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/udp"  
+      - "5349:5349/tcp"
+      - "60000-60100:60000-60100/udp"
+    volumes:
+      - ./data:/var/lib/coturn
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command: [
+      "-c", "/etc/coturn/turnserver.conf",
+      "--log-file=stdout"
+    ]
+
+networks:
+  default:
+    name: coturn_network

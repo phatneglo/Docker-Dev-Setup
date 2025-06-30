@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoTURN Test</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; margin-bottom: 30px; }
+        .test-section { margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff; }
+        button { background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 5px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .result { margin-top: 15px; padding: 15px; border-radius: 6px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin: 10px 0; }
+        .config { background: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 CoTURN STUN/TURN Server Test</h1>
+        <p><strong>Testing CoTURN server configured according to official documentation</strong></p>
+        <div class="info">
+            <p>✅ <strong>External IP mapping</strong>: 127.0.0.1 (key for TURN functionality)</p>
+            <p>✅ <strong>Static authentication</strong>: coturn123secret</p>
+            <p>✅ <strong>Official parameters</strong>: Based on CoTURN README.turnserver</p>
+        </div>
+        
+        <div class="test-section">
+            <h3>📡 STUN Server Test</h3>
+            <p>Test STUN server connectivity and get your public IP address.</p>
+            <button onclick="testStun()" id="stunBtn">Test STUN Server</button>
+            <div id="stunResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔄 TURN Server Test</h3>
+            <p>Test TURN server for media relay functionality.</p>
+            <button onclick="testTurn()" id="turnBtn">Test TURN Server</button>
+            <div id="turnResult"></div>
+        </div>
+
+        <div class="config">
+            <h3>⚙️ WebRTC Configuration</h3>
+            <p>Use this configuration in your WebRTC applications:</p>
+            <pre>{
+  "iceServers": [
+    { "urls": "stun:localhost:3478" },
+    { 
+      "urls": "turn:localhost:3478",
+      "username": "user",
+      "credential": "coturn123secret"
+    }
+  ]
+}</pre>
+        </div>
+    </div>
+
+    <script>
+        async function testStun() {
+            const stunBtn = document.getElementById('stunBtn');
+            const result = document.getElementById('stunResult');
+            
+            stunBtn.disabled = true;
+            stunBtn.textContent = 'Testing...';
+            result.innerHTML = '<div class="result info">Testing STUN server connectivity...</div>';
+
+            try {
+                const pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:localhost:3478' }]
+                });
+                
+                pc.createDataChannel('test');
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                let candidates = [];
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        candidates.push(event.candidate);
+                    } else {
+                        if (candidates.length > 0) {
+                            result.innerHTML = '<div class="result success">✅ STUN server working!</div><h4>ICE Candidates:</h4><pre>' + 
+                                candidates.map((c, i) => `${i + 1}. ${c.candidate}`).join('\n') + '</pre>';
+                        } else {
+                            result.innerHTML = '<div class="result error">❌ No STUN candidates received</div>';
+                        }
+                        pc.close();
+                        stunBtn.disabled = false;
+                        stunBtn.textContent = 'Test STUN Server';
+                    }
+                };
+                
+                setTimeout(() => {
+                    if (candidates.length === 0) {
+                        result.innerHTML = '<div class="result error">❌ STUN test timeout - no candidates received</div>';
+                        pc.close();
+                        stunBtn.disabled = false;
+                        stunBtn.textContent = 'Test STUN Server';
+                    }
+                }, 10000);
+                
+            } catch (error) {
+                result.innerHTML = `<div class="result error">❌ Error: ${error.message}</div>`;
+                stunBtn.disabled = false;
+                stunBtn.textContent = 'Test STUN Server';
+            }
+        }
+
+        async function testTurn() {
+            const turnBtn = document.getElementById('turnBtn');
+            const result = document.getElementById('turnResult');
+            
+            turnBtn.disabled = true;
+            turnBtn.textContent = 'Testing...';
+            result.innerHTML = '<div class="result info">Testing TURN server connectivity...</div>';
+
+            try {
+                const pc = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:localhost:3478' },
+                        { 
+                            urls: 'turn:localhost:3478',
+                            username: 'user',
+                            credential: 'coturn123secret'
+                        }
+                    ]
+                });
+                
+                pc.createDataChannel('test');
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                let candidates = [];
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        candidates.push(event.candidate);
+                    } else {
+                        const turnCandidates = candidates.filter(c => c.candidate.includes('typ relay'));
+                        
+                        if (turnCandidates.length > 0) {
+                            result.innerHTML = '<div class="result success">✅ TURN server working!</div>' +
+                                `<div class="result info">Found ${turnCandidates.length} relay candidate(s)</div>` +
+                                '<h4>TURN Relay Candidates:</h4><pre>' + 
+                                turnCandidates.map((c, i) => `${i + 1}. ${c.candidate}`).join('\n') + '</pre>';
+                        } else {
+                            result.innerHTML = '<div class="result error">❌ No TURN relay candidates found</div>' +
+                                '<div class="result info">STUN working, but TURN authentication failed</div>' +
+                                '<p>Check username/password or server logs: <code>docker logs coturn_server</code></p>';
+                        }
+                        pc.close();
+                        turnBtn.disabled = false;
+                        turnBtn.textContent = 'Test TURN Server';
+                    }
+                };
+                
+                setTimeout(() => {
+                    pc.close();
+                    turnBtn.disabled = false;
+                    turnBtn.textContent = 'Test TURN Server';
+                }, 12000);
+                
+            } catch (error) {
+                result.innerHTML = `<div class="result error">❌ Error: ${error.message}</div>`;
+                turnBtn.disabled = false;
+                turnBtn.textContent = 'Test TURN Server';
+            }
+        }
+    </script>
+</body>
+</html>

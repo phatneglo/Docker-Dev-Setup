@@ -7,6 +7,12 @@ This repository contains Docker Compose configurations for various services used
 ```
 D:\DOCKER_CONTAINER_FILES\
 │
+├── coturn\
+│   ├── docker-compose.yml
+│   ├── turnserver.conf
+│   ├── start.bat
+│   ├── test.html
+│   └── data\
 ├── elasticsearch\
 │   ├── docker-compose.yml
 │   └── data\
@@ -33,6 +39,7 @@ D:\DOCKER_CONTAINER_FILES\
 │   ├── docker-compose.yml
 │   └── data\
 │
+├── coturn.env
 ├── elasticsearch.env
 ├── emqx.env
 ├── kafka.env
@@ -45,15 +52,16 @@ D:\DOCKER_CONTAINER_FILES\
 
 ## Services
 
-1. **Elasticsearch**: A distributed, RESTful search and analytics engine.
-2. **EMQX**: A highly scalable, distributed MQTT broker for IoT.
-3. **Kafka**: A distributed event streaming platform.
-4. **MinIO (Archive)**: Object storage for archival purposes.
-5. **MinIO (Working)**: Object storage for active data.
-6. **OnlyOffice**: An online office suite for document editing and collaboration.
-7. **Qdrant**: Vector similarity search engine.
-8. **Redis**: In-memory data structure store, used as a database, cache, and message broker.
-9. **ClickHouse**: Open-source column-oriented database management system.
+1. **CoTURN**: STUN/TURN server for WebRTC NAT traversal and media relay.
+2. **Elasticsearch**: A distributed, RESTful search and analytics engine.
+3. **EMQX**: A highly scalable, distributed MQTT broker for IoT.
+4. **Kafka**: A distributed event streaming platform.
+5. **MinIO (Archive)**: Object storage for archival purposes.
+6. **MinIO (Working)**: Object storage for active data.
+7. **OnlyOffice**: An online office suite for document editing and collaboration.
+8. **Qdrant**: Vector similarity search engine.
+9. **Redis**: In-memory data structure store, used as a database, cache, and message broker.
+10. **ClickHouse**: Open-source column-oriented database management system.
 
 ## Setup and Running
 
@@ -75,6 +83,16 @@ D:\DOCKER_CONTAINER_FILES\
    ```
 
 ## Service Details
+
+### CoTURN
+- STUN/TURN Port: 3478 (UDP/TCP)
+- STUN/TURN TLS Port: 5349 (UDP/TCP)
+- UDP Relay Port Range: 60000-60100
+- Authentication: username=user, password=coturn123secret
+- External IP: 127.0.0.1 (key for TURN functionality)
+- **Quick Start**: `cd coturn && start.bat`
+- **Test Page**: test.html
+- **Configuration**: Based on official CoTURN README.turnserver
 
 ### EMQX
 - MQTT Port: 1883

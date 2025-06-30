@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  couchdb:
+    image: couchdb:${COUCHDB_VERSION}
+    container_name: couchdb
+    environment:
+      - COUCHDB_USER=${COUCHDB_USER}
+      - COUCHDB_PASSWORD=${COUCHDB_PASSWORD}
+    volumes:
+      - ./data:/opt/couchdb/data
+    ports:
+      - "5984:5984"
+    restart: unless-stopped
+    networks:
+      - couchdb_net
+
+networks:
+  couchdb_net:
+    driver: bridge
