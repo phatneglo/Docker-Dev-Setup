@@ -1,27 +1,49 @@
-docker exec -it nextcloud bash
+<?php
+/**
+ * Nextcloud S3 Primary Storage Configuration
+ * For MinIO Archive integration
+ */
 
-apt-get update && apt-get install -y nano
-
-nano /var/www/html/config/config.php
-
-paste this:
-
-
-'objectstore' => array(
-  'class' => '\\OC\\Files\\ObjectStore\\S3',
-  'arguments' => array(
-    'bucket' => 'pg-itbs-dev',
-    'autocreate' => true,
-    'key' => 'DO00WVEWRUJZDU2XGJRB',
-    'secret' => '7kAG4m6BfRE07mnnZygCwQSTqn+hpKmK0o9zVGT0D+4',
-    'hostname' => 'sgp1.digitaloceanspaces.com',
-    'port' => 443,
-    'use_ssl' => true,
-    'region' => 'sgp1',
-    'use_path_style' => false,
-    'object_prefix' => 'nextcloud/',
+$CONFIG = array(
+  'objectstore' => array(
+    'class' => '\\OC\\Files\\ObjectStore\\S3',
+    'arguments' => array(
+      'bucket' => 'nextcloud',
+      'key' => 's3phatneglo-archive',
+      'secret' => '0yq5h3to9',
+      'hostname' => 'host.docker.internal',
+      'port' => 9010,
+      'use_ssl' => false,
+      'region' => 'us-east-1',
+      'use_path_style' => true,
+      'autocreate' => true,
+      'verify_bucket_exists' => true,
+    ),
   ),
-),
-
-restart:
-docker restart nextcloud
+  
+  // ONLYOFFICE Integration Settings
+  'onlyoffice' => array(
+    'DocumentServerUrl' => 'http://onlyoffice-documentserver/',
+    'DocumentServerInternalUrl' => 'http://onlyoffice-documentserver/',
+    'StorageUrl' => 'http://host.docker.internal:9010/onlyoffice/',
+    'jwt' => array(
+      'enabled' => true,
+      'secret' => '0yq5h3to9',
+      'header' => 'Authorization',
+    ),
+    'verification' => array(
+      'allowPrivateIPs' => true,
+      'verifyPeerOff' => true,
+    ),
+    'customization' => array(
+      'autosave' => true,
+      'chat' => true,
+      'comments' => true,
+      'help' => true,
+      'hideRightMenu' => false,
+      'review' => true,
+      'toolbar' => true,
+      'trackChanges' => true,
+    ),
+  ),
+); 
