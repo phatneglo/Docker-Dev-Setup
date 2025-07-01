@@ -14,6 +14,7 @@ import json
 import tempfile
 import shutil
 import base64
+import hashlib
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 from pathlib import Path
@@ -329,6 +330,14 @@ async def root():
             <p><a href="/documents">List Documents in S3</a></p>
             <p><a href="/temp-files">List Temporary Files</a></p>
             <p><a href="/docs">API Documentation</a></p>
+            
+            <h2>👥 Real-time Collaboration Testing</h2>
+            <p>To test collaboration, open the same document with different users:</p>
+            <div class="endpoint">
+                <strong>User 1:</strong> <code>/editor/document.docx?user_id=1&username=Alice</code><br>
+                <strong>User 2:</strong> <code>/editor/document.docx?user_id=2&username=Bob</code>
+            </div>
+            <p><small>Replace "document.docx" with your actual filename. Both users will see each other's changes in real-time!</small></p>
             
             <h2>📱 ONLYOFFICE Integration</h2>
             <p>Webhook URL for ONLYOFFICE: <code>http://localhost:{settings.webhook_port}/webhook/callback</code></p>
@@ -647,7 +656,7 @@ async def delete_temp_file(filename: str):
         raise HTTPException(status_code=500, detail=f"Failed to delete temp file: {str(e)}")
 
 @app.get("/editor/{filename}", response_class=HTMLResponse)
-async def document_editor(filename: str):
+async def document_editor(filename: str, request: Request):
     """Serve ONLYOFFICE document editor for a file"""
     try:
         # Find the original S3 path for this file
@@ -656,12 +665,16 @@ async def document_editor(filename: str):
         if not original_s3_path:
             raise HTTPException(status_code=404, detail=f"Document not found: {filename}")
         
+        # Generate consistent document key based on filename and S3 path (not random)
+        # This ensures all users editing the same document get the same key for collaboration
+        file_hash = hashlib.md5(f"{original_s3_path}".encode()).hexdigest()[:8]
+        
         # Encode the S3 path in base64 to include in document key
         encoded_s3_path = base64.b64encode(original_s3_path.encode()).decode()
         
-        # Generate document key with original S3 path encoded
-        # Format: doc_{uuid}_{base64_s3_path}_{filename}
-        document_key = f"doc_{uuid.uuid4().hex[:8]}_{encoded_s3_path}_{filename}"
+        # Generate consistent document key for collaboration
+        # Format: doc_{hash}_{base64_s3_path}_{filename}
+        document_key = f"doc_{file_hash}_{encoded_s3_path}_{filename}"
         
         logger.info(f"Generated document key for {filename} from S3 path {original_s3_path}: {document_key}")
         
@@ -685,6 +698,10 @@ async def document_editor(filename: str):
         # Callback URL for saving (use host.docker.internal for Docker container access)
         callback_url = f"http://host.docker.internal:{settings.webhook_port}/webhook/callback"
         
+        # Get user info from query parameters (for collaboration)
+        user_id = request.query_params.get("user_id", "-1")
+        username = request.query_params.get("username", "administrator")
+        
         # Create ONLYOFFICE configuration object
         config = {
             "document": {
@@ -706,8 +723,8 @@ async def document_editor(filename: str):
                 "lang": "en",
                 "callbackUrl": callback_url,
                 "user": {
-                    "id": "-1",
-                    "name": "administrator"
+                    "id": user_id,
+                    "name": username
                 },
                 "customization": {
                     "autosave": True,
@@ -718,7 +735,14 @@ async def document_editor(filename: str):
                     "hideRightMenu": False,
                     "review": True,
                     "toolbar": True,
-                    "zoom": 100
+                    "zoom": 100,
+                    "compactToolbar": False,
+                    "plugins": True,
+                    "toolbarNoTabs": False,
+                    "features": {
+                        "spellcheck": True,
+                        "grammarcheck": True
+                    }
                 }
             },
             "width": "100%",
@@ -802,9 +826,12 @@ async def document_editor(filename: str):
                     <div class="info">
                         <div>
                             <h2>📄 {filename}</h2>
-                            <p>Document Type: {document_type.title()}</p>
-                            <p>Original S3 Path: <code>{original_s3_path}</code></p>
+                            <p><strong>Document Type:</strong> {document_type.title()}</p>
+                            <p><strong>Current User:</strong> {username} (ID: {user_id})</p>
+                            <p><strong>Document Key:</strong> <code>{document_key}</code></p>
+                            <p><strong>Original S3 Path:</strong> <code>{original_s3_path}</code></p>
                             <p><small>Changes will be saved back to the original location</small></p>
+                            <p><small>💡 <strong>Real-time Collaboration:</strong> Open this same URL in another window with different users to test collaboration!</small></p>
                         </div>
                         <a href="http://{settings.host_ip}:{settings.webhook_port}/" class="back-link">← Back to API</a>
                     </div>
@@ -826,10 +853,10 @@ async def document_editor(filename: str):
                     // ONLYOFFICE configuration with JWT token
                     var config = {config_json};
                     
-                    // Add event handlers
+                    // Add event handlers for collaboration
                     config.events = {{
                         "onReady": function() {{
-                            console.log("Document editor ready");
+                            console.log("Document editor ready for user: {username}");
                         }},
                         "onError": function(event) {{
                             console.error("Editor error:", event);
@@ -837,6 +864,21 @@ async def document_editor(filename: str):
                         }},
                         "onDocumentStateChange": function(event) {{
                             console.log("Document state changed:", event);
+                        }},
+                        "onInfo": function(event) {{
+                            console.log("Editor info:", event);
+                        }},
+                        "onWarning": function(event) {{
+                            console.warn("Editor warning:", event);
+                        }},
+                        "onRequestUsers": function(event) {{
+                            console.log("Users requested:", event);
+                        }},
+                        "onRequestSendNotify": function(event) {{
+                            console.log("Send notify requested:", event);
+                        }},
+                        "onCollaborativeChanges": function() {{
+                            console.log("Collaborative changes detected");
                         }}
                     }};
                     
