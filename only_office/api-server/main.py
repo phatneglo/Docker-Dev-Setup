@@ -324,6 +324,7 @@ async def root():
             <div class="endpoint"><strong>POST</strong> /cleanup-temp-files - Clean Up Old Temp Files</div>
             <div class="endpoint"><strong>DELETE</strong> /temp-files/{{filename}} - Delete Specific Temp File</div>
             <div class="endpoint"><strong>GET</strong> /editor/{{filename}} - Document Editor</div>
+            <div class="endpoint"><strong>GET</strong> /editor/{{filename}}?user_id={{id}}&username={{name}}&readonly={{true/false}} - Document Editor with User & Permissions</div>
             
             <h2>🧪 Test Links</h2>
             <p><a href="/health">Health Check</a></p>
@@ -332,12 +333,18 @@ async def root():
             <p><a href="/docs">API Documentation</a></p>
             
             <h2>👥 Real-time Collaboration Testing</h2>
-            <p>To test collaboration, open the same document with different users:</p>
+            <p>To test collaboration with different permission levels, open the same document with different users:</p>
             <div class="endpoint">
-                <strong>User 1:</strong> <code>/editor/document.docx?user_id=1&username=Alice</code><br>
-                <strong>User 2:</strong> <code>/editor/document.docx?user_id=2&username=Bob</code>
+                <strong>Editor 1 (Full Access):</strong> <code>/editor/document.docx?user_id=1&username=Alice</code><br>
+                <strong>Editor 2 (Full Access):</strong> <code>/editor/document.docx?user_id=2&username=Bob</code><br>
+                <strong>Viewer (Read-Only):</strong> <code>/editor/document.docx?user_id=3&username=Charlie&readonly=true</code>
             </div>
-            <p><small>Replace "document.docx" with your actual filename. Both users will see each other's changes in real-time!</small></p>
+            <p><small>Replace "document.docx" with your actual filename.</small></p>
+            <h3>📋 Permission Levels:</h3>
+            <div class="endpoint">
+                <strong>✏️ Edit Mode:</strong> Can edit, comment, review, fill forms<br>
+                <strong>📖 Read-Only:</strong> Can only view and download (no editing, commenting, or reviewing)
+            </div>
             
             <h2>📱 ONLYOFFICE Integration</h2>
             <p>Webhook URL for ONLYOFFICE: <code>http://localhost:{settings.webhook_port}/webhook/callback</code></p>
@@ -701,6 +708,7 @@ async def document_editor(filename: str, request: Request):
         # Get user info from query parameters (for collaboration)
         user_id = request.query_params.get("user_id", "-1")
         username = request.query_params.get("username", "administrator")
+        readonly = request.query_params.get("readonly", "false").lower() in ["true", "1", "yes"]
         
         # Create ONLYOFFICE configuration object
         config = {
@@ -710,16 +718,21 @@ async def document_editor(filename: str, request: Request):
                 "title": filename,
                 "url": document_url,
                 "permissions": {
-                    "edit": True,
+                    "edit": not readonly,
                     "download": True,
-                    "review": True,
-                    "fillForms": True,
-                    "comment": True
+                    "review": not readonly,
+                    "fillForms": not readonly,
+                    "comment": not readonly,
+                    "copy": True,
+                    "print": True,
+                    "modifyFilter": not readonly,
+                    "modifyContentControl": not readonly,
+                    "protect": not readonly
                 }
             },
             "documentType": document_type,
             "editorConfig": {
-                "mode": "edit",
+                "mode": "view" if readonly else "edit",
                 "lang": "en",
                 "callbackUrl": callback_url,
                 "user": {
@@ -827,11 +840,12 @@ async def document_editor(filename: str, request: Request):
                         <div>
                             <h2>📄 {filename}</h2>
                             <p><strong>Document Type:</strong> {document_type.title()}</p>
-                            <p><strong>Current User:</strong> {username} (ID: {user_id})</p>
+                            <p><strong>Current User:</strong> {username} (ID: {user_id}) {'📖 READ-ONLY' if readonly else '✏️ EDIT MODE'}</p>
                             <p><strong>Document Key:</strong> <code>{document_key}</code></p>
                             <p><strong>Original S3 Path:</strong> <code>{original_s3_path}</code></p>
                             <p><small>Changes will be saved back to the original location</small></p>
                             <p><small>💡 <strong>Real-time Collaboration:</strong> Open this same URL in another window with different users to test collaboration!</small></p>
+                            {'<p style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-top: 10px;"><strong>📖 READ-ONLY MODE:</strong> You can view this document but cannot make changes.</p>' if readonly else ''}
                         </div>
                         <a href="http://{settings.host_ip}:{settings.webhook_port}/" class="back-link">← Back to API</a>
                     </div>
@@ -856,7 +870,7 @@ async def document_editor(filename: str, request: Request):
                     // Add event handlers for collaboration
                     config.events = {{
                         "onReady": function() {{
-                            console.log("Document editor ready for user: {username}");
+                            console.log("Document editor ready for user: {username} ({'readonly' if readonly else 'edit'} mode)");
                         }},
                         "onError": function(event) {{
                             console.error("Editor error:", event);
