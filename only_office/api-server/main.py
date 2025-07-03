@@ -42,9 +42,9 @@ class Settings(BaseSettings):
     onlyoffice_server_url: str = "http://localhost:8080"
     
     # MinIO/S3 Configuration (Digital Ocean Spaces)
-    minio_endpoint: str = "sgp1.digitaloceanspaces.com"
-    minio_access_key: str = "DO00WVEWRUJZDU2XGJRB"
-    minio_secret_key: str = "7kAG4m6BfRE07mnnZygCwQSTqn+hpKmK0o9zVGT0D+4"
+    minio_endpoint: str = "CHANGE THIS"
+    minio_access_key: str = "CHANGE THIS"
+    minio_secret_key: str = "CHANGE THIS"
     minio_bucket: str = "pg-itbs-dev"
     minio_secure: bool = True
     
