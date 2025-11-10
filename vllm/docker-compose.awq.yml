@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vllm
+    ports:
+      - "1234:8000"
+    volumes:
+      - C:\models\llama3.1-8b-awq:/model  # Update this path after download
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command:
+      - --model
+      - /model
+      - --quantization
+      - awq
+      - --served-model-name
+      - llama-3.1-8b
+      - --max-model-len
+      - "8192"
+      - --gpu-memory-utilization
+      - "0.60"
+      - --max-num-batched-tokens
+      - "8192"
+      - --enable-prefix-caching
+      - --swap-space
+      - "4"
+    restart: unless-stopped
+    shm_size: 2gb
+
+networks:
+  default:
+    name: vllm_network
+

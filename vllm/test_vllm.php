@@ -229,6 +229,7 @@ function testCompletion() {
 
 function testChatWithFunctionCalling() {
     echo Colors::CYAN . Colors::BOLD . "\n=== Test 6: Chat with Function Calling ===\n" . Colors::RESET;
+    echo Colors::YELLOW . "Note: Function calling may not be supported by this vLLM version\n" . Colors::RESET;
     
     $data = [
         'model' => $GLOBALS['MODEL_NAME'],
@@ -266,16 +267,18 @@ function testChatWithFunctionCalling() {
     $result = makeRequest($GLOBALS['VLLM_BASE_URL'] . '/v1/chat/completions', 'POST', $data);
     
     if ($result['http_code'] === 200 && isset($result['data']['choices'][0])) {
-        echo Colors::GREEN . "✓ Function calling test successful\n" . Colors::RESET;
         $choice = $result['data']['choices'][0];
         if (isset($choice['message']['function_call'])) {
+            echo Colors::GREEN . "✓ Function calling supported and working\n" . Colors::RESET;
             echo Colors::YELLOW . "Function call detected:\n" . Colors::RESET;
             echo "  Function: " . $choice['message']['function_call']['name'] . "\n";
             echo "  Arguments: " . $choice['message']['function_call']['arguments'] . "\n";
         } else {
+            echo Colors::YELLOW . "⚠ Function calling not supported (fields ignored by server)\n" . Colors::RESET;
             echo Colors::YELLOW . "Response: " . Colors::RESET . $choice['message']['content'] . "\n";
+            echo Colors::BLUE . "This is expected - vLLM may ignore function calling fields\n" . Colors::RESET;
         }
-        return true;
+        return true; // Still return true as the request succeeded
     } else {
         echo Colors::RED . "✗ Function calling test failed\n" . Colors::RESET;
         if (isset($result['data'])) {
@@ -336,7 +339,7 @@ $results[] = testListModels();
 $results[] = testChatCompletion();
 $results[] = testChatCompletionStreaming();
 $results[] = testCompletion();
-$results[] = testChatWithFunctionCalling();
+$results[] = testChatWithFunctionCalling(); // May show warnings, but still works
 $results[] = testChatWithSystemMessage();
 
 // Summary
