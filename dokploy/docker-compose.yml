@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  dokploy-db:
+    image: postgres:${POSTGRES_VERSION}
+    container_name: dokploy-db
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dokploy:
+    image: dokploy/dokploy:${DOKPLOY_VERSION}
+    container_name: dokploy
+    ports:
+      - "${DOKPLOY_PORT}:3000"
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@dokploy-db:5432/${POSTGRES_DB}
+      - NODE_ENV=production
+      - SECRET_KEY=${SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    depends_on:
+      dokploy-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  default:
+    name: dokploy_network
+
