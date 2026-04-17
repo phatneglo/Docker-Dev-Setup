@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  db:
+    image: mariadb:10.5
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - ./data/db:/var/lib/mysql
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    volumes:
+      - ./data/redis:/data
+
+  librenms:
+    image: ${LIBRENMS_IMAGE}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT}:8000"
+    environment:
+      DB_HOST: db
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_PORT: 3306
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      TZ: ${TZ}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./data/librenms:/data
+
+networks:
+  default:
+    name: librenms_network
