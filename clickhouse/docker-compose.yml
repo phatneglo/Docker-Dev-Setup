@@ -6,9 +6,10 @@ services:
       - "${CLICKHOUSE_TCP_PORT}:9000"
       - "${CLICKHOUSE_POSTGRESQL_PORT}:9005"
     volumes:
-      - ./data:/var/lib/clickhouse
+      - clickhouse_data:/var/lib/clickhouse
       - ./log:/var/log/clickhouse-server
       - ./config/config.xml:/etc/clickhouse-server/config.d/postgresql.xml:ro
+      - ./config/async_insert_off.xml:/etc/clickhouse-server/users.d/async_insert_off.xml:ro
     environment:
       - CLICKHOUSE_DB=${CLICKHOUSE_DB}
       - CLICKHOUSE_USER=${CLICKHOUSE_USER}
@@ -39,6 +40,9 @@ services:
     depends_on:
       - clickhouse
     restart: unless-stopped
+
+volumes:
+  clickhouse_data:
 
 networks:
   default:
