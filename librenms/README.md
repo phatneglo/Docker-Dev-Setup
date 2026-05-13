@@ -63,6 +63,102 @@ After that, log in at:
 http://localhost:8000/login
 ```
 
+## Troubleshooting: Devices Not Showing Data (e.g., Ruijie Switches)
+
+Good news: **LibreNMS can already talk to your device**. Your working SNMP command proves it's alive:
+
+```bash
+snmpwalk -v2c -c unms 10.10.0.1 1.3.6.1.2.1.1
+```
+
+So the correct SNMP community is confirmed. However, the device may be added but discovery/polling has not fully populated ports, graphs, CPU, memory, sensors, etc.
+
+### Do this first: run discovery and poller manually
+
+Run these from PowerShell:
+
+```powershell
+docker exec -u librenms librenms-librenms-1 bash -lc "cd /opt/librenms && ./lnms device:discover 10.10.0.1 -vvv"
+```
+
+Then:
+
+```powershell
+docker exec -u librenms librenms-librenms-1 bash -lc "cd /opt/librenms && ./lnms device:poll 10.10.0.1 -vvv"
+```
+
+After that, refresh LibreNMS and click the device name.
+
+### Check if device exposes interface data
+
+Your SNMP test only checks system info. Now test if the device exposes ports/interfaces:
+
+```powershell
+docker exec -u librenms librenms-librenms-1 snmpwalk -v2c -c unms 10.10.0.1 1.3.6.1.2.1.2.2.1.2
+```
+
+This should show interface names (LAN/WAN/eth ports). Also test:
+
+```powershell
+docker exec -u librenms librenms-librenms-1 snmpwalk -v2c -c unms 10.10.0.1 1.3.6.1.2.1.31.1.1.1.1
+```
+
+If these return data, LibreNMS should be able to discover ports. If they return nothing, your device SNMP may only expose basic system info.
+
+### Check device SNMP settings
+
+On your router/switch, verify SNMP configuration:
+
+| Setting            | Recommended Value |
+| ------------------ | ----------------- |
+| SNMP Version       | v2c               |
+| Community          | `unms`            |
+| Permission         | Read-only         |
+| MIB View           | All               |
+| Allowed Manager IP | Your LibreNMS IP   |
+| Port               | UDP 161           |
+
+The critical setting is **MIB View = All**. If limited, LibreNMS may only see basic info.
+
+### Verify LibreNMS SNMP settings
+
+In LibreNMS, check the device configuration:
+
+```text
+Devices > [Your Device IP] > Edit Device > SNMP
+```
+
+Ensure the community matches what's configured on the device. If you added it with the wrong community:
+
+1. Delete the device from LibreNMS
+2. Add it again
+3. Use SNMP v2c
+4. Use the correct community string
+
+### Check if poller is running
+
+Validate your LibreNMS setup:
+
+```powershell
+docker exec -u librenms librenms-librenms-1 bash -lc "cd /opt/librenms && ./validate.php"
+```
+
+Also check containers:
+
+```powershell
+docker compose ps
+```
+
+If the poller/dispatcher container is not running, devices will be added but metrics won't update.
+
+### Quick fix: run both discovery and polling together
+
+```powershell
+docker exec -u librenms librenms-librenms-1 bash -lc "cd /opt/librenms && ./lnms device:discover 10.10.0.1 -vvv && ./lnms device:poll 10.10.0.1 -vvv"
+```
+
+Then refresh LibreNMS to see updated data.
+
 ## Scan Your Network
 
 Scan a subnet:
