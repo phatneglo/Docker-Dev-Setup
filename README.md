@@ -5,8 +5,11 @@ This repository contains Docker Compose configurations for various services used
 ## Directory Structure
 
 ```
-D:\DOCKER_CONTAINER_FILES\
+D:\TOOLS\DOCKER-DEV\
 │
+├── clickhouse\
+│   ├── docker-compose.yml
+│   └── data\
 ├── coturn\
 │   ├── docker-compose.yml
 │   ├── turnserver.conf
@@ -32,6 +35,19 @@ D:\DOCKER_CONTAINER_FILES\
 ├── onlyoffice\
 │   ├── docker-compose.yml
 │   └── data\
+├── postgres-wal\
+│   ├── docker-compose.yml
+│   ├── docker-compose.restore.yml
+│   ├── README.md
+│   ├── architecture.md
+│   ├── architecture.svg
+│   ├── backup-api.md
+│   ├── backup-api\          # Go service + Dockerfile for backup/WAL/PITR API
+│   ├── config\              # wal-archive.conf and other PG overrides
+│   ├── restore-lab\         # Isolated PITR restore harness (data/ is gitignored)
+│   ├── tests\               # Go integration tests
+│   ├── backups\             # Local base-backup output (gitignored)
+│   └── wal-archive\         # WAL files written by archive_command (gitignored)
 ├── qdrant\
 │   ├── docker-compose.yml
 │   └── data\
@@ -39,6 +55,7 @@ D:\DOCKER_CONTAINER_FILES\
 │   ├── docker-compose.yml
 │   └── data\
 │
+├── clickhouse.env
 ├── coturn.env
 ├── elasticsearch.env
 ├── emqx.env
@@ -68,12 +85,12 @@ D:\DOCKER_CONTAINER_FILES\
 ## Setup and Running
 
 1. Ensure Docker and Docker Compose are installed on your system.
-2. Clone this repository to `D:\DOCKER_CONTAINER_FILES\`.
+2. Clone this repository to `D:\TOOLS\DOCKER-DEV\`.
 3. Navigate to each service directory and start the service:
 
    ```
-   cd D:\DOCKER_CONTAINER_FILES\<service_name>
-   docker-compose --env-file ../<service_name>.env up -d
+   cd D:\TOOLS\DOCKER-DEV\<service_name>
+   docker compose --env-file ../<service_name>.env up -d
    ```
 
    Replace `<service_name>` with the name of the service you want to start (e.g., elasticsearch, emqx, kafka, etc.).
@@ -81,7 +98,7 @@ D:\DOCKER_CONTAINER_FILES\
 4. To stop a service:
 
    ```
-   docker-compose --env-file ../<service_name>.env down
+   docker compose --env-file ../<service_name>.env down
    ```
 
 ## Service Details
@@ -133,9 +150,13 @@ D:\DOCKER_CONTAINER_FILES\
 ### PostgreSQL HA + WAL
 - Folder: `postgres-wal`
 - Env file: `postgres-wal.env`
-- Entrypoint: Pgpool on host port 55432 to avoid conflict with local PostgreSQL on 5432
-- Includes: 1 primary, 2 replicas, read load balancing, failover checks, WAL archive folder, optional Prometheus exporter
-- Diagram: `postgres-wal/architecture.svg`
+- Entrypoint: Pgpool on host port `55432` to avoid conflict with local PostgreSQL on 5432
+- Internal container port: `5432` (use `pgpool:5432` from other compose projects attached to `postgres-wal-network`)
+- Includes: 1 primary, 2 streaming replicas, read load balancing, repmgr failover checks, WAL archiving to `./wal-archive`
+- Prometheus exporter: port `9187` — enable with `--profile monitoring`
+- Backup API: port `8090` — Swagger at `http://localhost:8090/swagger`, auth via `X-Backup-API-Key` header (value from `BACKUP_API_KEY` in `postgres-wal.env`)
+- PITR restore lab: `docker-compose.restore.yml` + `restore-lab/prepare-pitr-restore.ps1`
+- Docs: [postgres-wal/README.md](postgres-wal/README.md), [postgres-wal/architecture.md](postgres-wal/architecture.md), [postgres-wal/backup-api.md](postgres-wal/backup-api.md), [postgres-wal/architecture.svg](postgres-wal/architecture.svg)
 
 ## Setup for Different Projects
 
