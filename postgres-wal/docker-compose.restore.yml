@@ -1,0 +1,32 @@
+name: postgres-wal-restore
+
+services:
+  pitr-restore:
+    image: postgres:17-bookworm
+    container_name: postgres-wal-pitr-restore
+    restart: "no"
+    environment:
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "${PITR_RESTORE_HOST_PORT:-55433}:5432"
+    volumes:
+      - ./restore-lab/data:/restore-source:ro
+      - ./restore-lab/wal:/restore-wal
+      - pitr_restore_data:/var/lib/postgresql/data
+    command:
+      - bash
+      - -lc
+      - |
+        set -euo pipefail
+        if [ ! -s "$$PGDATA/PG_VERSION" ]; then
+          echo "Loading prepared PITR data into $$PGDATA"
+          rm -rf "$$PGDATA"/*
+          cp -a /restore-source/. "$$PGDATA"/
+        fi
+        chown -R postgres:postgres "$$PGDATA"
+        chmod 700 "$$PGDATA"
+        chmod -R a+rX /restore-wal || true
+        exec gosu postgres /usr/lib/postgresql/17/bin/postgres -D "$$PGDATA" -c config_file="$$PGDATA/postgresql.conf"
+
+volumes:
+  pitr_restore_data:

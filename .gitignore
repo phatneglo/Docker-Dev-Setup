@@ -2,6 +2,8 @@
 */data/*
 */config/
 */log/
+!postgres-wal/config/
+!postgres-wal/config/wal-archive.conf
 
 # Don't ignore .env files (for development reference)
 !*.env

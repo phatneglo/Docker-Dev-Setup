@@ -46,6 +46,7 @@ D:\DOCKER_CONTAINER_FILES\
 ├── minio-archive.env
 ├── minio-working.env
 ├── onlyoffice.env
+├── postgres-wal.env
 ├── qdrant.env
 └── redis.env
 ```
@@ -62,6 +63,7 @@ D:\DOCKER_CONTAINER_FILES\
 8. **Qdrant**: Vector similarity search engine.
 9. **Redis**: In-memory data structure store, used as a database, cache, and message broker.
 10. **ClickHouse**: Open-source column-oriented database management system.
+11. **PostgreSQL HA + WAL**: Reference PostgreSQL cluster with replicas, Pgpool, and WAL archiving.
 
 ## Setup and Running
 
@@ -127,6 +129,13 @@ D:\DOCKER_CONTAINER_FILES\
 - MySQL protocol: 9004
 - PostgreSQL protocol: 9005
 - Inter-server communication: 9009
+
+### PostgreSQL HA + WAL
+- Folder: `postgres-wal`
+- Env file: `postgres-wal.env`
+- Entrypoint: Pgpool on host port 55432 to avoid conflict with local PostgreSQL on 5432
+- Includes: 1 primary, 2 replicas, read load balancing, failover checks, WAL archive folder, optional Prometheus exporter
+- Diagram: `postgres-wal/architecture.svg`
 
 ## Setup for Different Projects
 

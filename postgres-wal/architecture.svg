@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">PostgreSQL HA and WAL Architecture</title>
+  <desc id="desc">Application traffic enters Pgpool, which routes writes to the primary and read queries to replicas. Streaming replication sends WAL to replicas, and archived WAL is copied to a backup folder.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="1" stop-color="#eaf4ef"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#10313f" flood-opacity="0.18"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#1f5166"/>
+    </marker>
+    <marker id="walArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#c46a1a"/>
+    </marker>
+  </defs>
+  <rect width="1280" height="760" rx="28" fill="url(#bg)"/>
+  <text x="640" y="58" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="700" fill="#17313a">Enterprise-Style PostgreSQL HA + WAL Reference Stack</text>
+  <text x="640" y="90" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="16" fill="#52666f">Single entrypoint, automatic failover, read scaling, streaming replication, and WAL archive safety net</text>
+
+  <rect x="70" y="155" width="220" height="100" rx="18" fill="#ffffff" filter="url(#shadow)"/>
+  <text x="180" y="194" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#17313a">Applications</text>
+  <text x="180" y="224" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#52666f">API servers, workers, jobs</text>
+
+  <rect x="405" y="135" width="260" height="140" rx="20" fill="#e4f4ef" stroke="#2f7d64" stroke-width="2" filter="url(#shadow)"/>
+  <text x="535" y="180" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700" fill="#17313a">Pgpool-II</text>
+  <text x="535" y="211" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#315348">Host 55432, container 5432</text>
+  <text x="535" y="236" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#315348">pooling, health checks, read balance</text>
+
+  <rect x="805" y="115" width="300" height="150" rx="22" fill="#fff7e8" stroke="#d78227" stroke-width="2" filter="url(#shadow)"/>
+  <text x="955" y="160" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700" fill="#17313a">Postgres Primary</text>
+  <text x="955" y="192" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#725020">pg-0 accepts writes</text>
+  <text x="955" y="217" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#725020">WAL generated for every change</text>
+
+  <rect x="755" y="390" width="245" height="130" rx="20" fill="#edf3ff" stroke="#527bbd" stroke-width="2" filter="url(#shadow)"/>
+  <text x="877" y="435" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#17313a">Replica 1</text>
+  <text x="877" y="466" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#405b86">pg-1 read traffic</text>
+  <text x="877" y="491" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#405b86">promotion candidate</text>
+
+  <rect x="1035" y="390" width="245" height="130" rx="20" fill="#edf3ff" stroke="#527bbd" stroke-width="2" filter="url(#shadow)"/>
+  <text x="1157" y="435" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#17313a">Replica 2</text>
+  <text x="1157" y="466" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#405b86">pg-2 read traffic</text>
+  <text x="1157" y="491" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#405b86">promotion candidate</text>
+
+  <rect x="400" y="430" width="270" height="130" rx="20" fill="#fff2e4" stroke="#c46a1a" stroke-width="2" filter="url(#shadow)"/>
+  <text x="535" y="475" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#17313a">WAL Archive Folder</text>
+  <text x="535" y="506" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#6c4319">./postgres-wal/wal-archive</text>
+  <text x="535" y="531" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#6c4319">point-in-time recovery source</text>
+
+  <rect x="80" y="475" width="220" height="95" rx="18" fill="#ffffff" stroke="#8da2ad" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="190" y="514" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700" fill="#17313a">Backup Tool</text>
+  <text x="190" y="543" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#52666f">base backups + dumps</text>
+
+  <path d="M290 205 H405" stroke="#1f5166" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+  <text x="347" y="190" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#1f5166">SQL traffic</text>
+
+  <path d="M665 190 H805" stroke="#1f5166" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+  <text x="735" y="174" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#1f5166">writes</text>
+
+  <path d="M650 250 C760 345 810 350 870 390" stroke="#527bbd" stroke-width="3.5" fill="none" marker-end="url(#arrow)"/>
+  <path d="M665 235 C840 335 1060 340 1155 390" stroke="#527bbd" stroke-width="3.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="730" y="332" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#405b86">read queries</text>
+
+  <path d="M920 265 C905 315 890 340 880 390" stroke="#c46a1a" stroke-width="4" fill="none" marker-end="url(#walArrow)"/>
+  <path d="M1000 265 C1070 315 1130 340 1155 390" stroke="#c46a1a" stroke-width="4" fill="none" marker-end="url(#walArrow)"/>
+  <text x="1043" y="326" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#9b520f">streaming WAL replication</text>
+
+  <path d="M805 222 C700 300 610 365 555 430" stroke="#c46a1a" stroke-width="4" fill="none" stroke-dasharray="9 8" marker-end="url(#walArrow)"/>
+  <text x="660" y="368" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#9b520f">archive_command copies WAL</text>
+
+  <path d="M300 520 H400" stroke="#8da2ad" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+  <text x="350" y="505" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#52666f">backup + restore plan</text>
+
+  <rect x="155" y="645" width="970" height="64" rx="16" fill="#17313a"/>
+  <text x="640" y="672" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="15" fill="#ffffff">Important production rule: run database nodes on separate machines/availability zones, store WAL in durable object storage, monitor replication lag, and regularly test restores.</text>
+  <text x="640" y="697" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="15" fill="#bdd5df">This Docker Compose stack is a practical local/staging reference, not a substitute for multi-node infrastructure.</text>
+</svg>

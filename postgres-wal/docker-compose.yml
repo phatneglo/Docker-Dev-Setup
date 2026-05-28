@@ -1,0 +1,232 @@
+services:
+  pg-0:
+    image: bitnamilegacy/postgresql-repmgr:17.6.0
+    container_name: postgres-wal-pg-0
+    restart: unless-stopped
+    env_file:
+      - ../postgres-wal.env
+    environment:
+      POSTGRESQL_POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      POSTGRESQL_USERNAME: ${POSTGRES_USER}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRESQL_DATABASE: ${POSTGRES_DB}
+      POSTGRESQL_MAX_CONNECTIONS: 300
+      POSTGRESQL_SHARED_PRELOAD_LIBRARIES: pgaudit,repmgr
+      POSTGRESQL_EXTRA_FLAGS: >-
+        -c wal_level=replica
+        -c archive_mode=on
+        -c archive_timeout=60s
+        -c max_wal_senders=16
+        -c max_replication_slots=16
+        -c hot_standby=on
+        -c wal_compression=on
+        -c checkpoint_completion_target=0.9
+        -c shared_buffers=512MB
+        -c effective_cache_size=1536MB
+        -c maintenance_work_mem=128MB
+        -c work_mem=16MB
+      REPMGR_PASSWORD: ${REPMGR_PASSWORD}
+      REPMGR_PRIMARY_HOST: pg-0
+      REPMGR_PARTNER_NODES: pg-0,pg-1,pg-2
+      REPMGR_NODE_NAME: pg-0
+      REPMGR_NODE_NETWORK_NAME: pg-0
+    volumes:
+      - pg_0_data:/bitnami/postgresql
+      - ./wal-archive:/wal-archive
+      - ./config/wal-archive.conf:/opt/bitnami/postgresql/conf/conf.d/zz-wal-archive.conf:ro
+    networks:
+      - postgres-wal-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  pg-1:
+    image: bitnamilegacy/postgresql-repmgr:17.6.0
+    container_name: postgres-wal-pg-1
+    restart: unless-stopped
+    depends_on:
+      pg-0:
+        condition: service_healthy
+    env_file:
+      - ../postgres-wal.env
+    environment:
+      POSTGRESQL_POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      POSTGRESQL_USERNAME: ${POSTGRES_USER}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRESQL_DATABASE: ${POSTGRES_DB}
+      POSTGRESQL_MAX_CONNECTIONS: 300
+      POSTGRESQL_SHARED_PRELOAD_LIBRARIES: pgaudit,repmgr
+      POSTGRESQL_EXTRA_FLAGS: >-
+        -c wal_level=replica
+        -c archive_mode=on
+        -c archive_timeout=60s
+        -c max_wal_senders=16
+        -c max_replication_slots=16
+        -c hot_standby=on
+        -c wal_compression=on
+        -c checkpoint_completion_target=0.9
+        -c shared_buffers=512MB
+        -c effective_cache_size=1536MB
+        -c maintenance_work_mem=128MB
+        -c work_mem=16MB
+      REPMGR_PASSWORD: ${REPMGR_PASSWORD}
+      REPMGR_PRIMARY_HOST: pg-0
+      REPMGR_PARTNER_NODES: pg-0,pg-1,pg-2
+      REPMGR_NODE_NAME: pg-1
+      REPMGR_NODE_NETWORK_NAME: pg-1
+    volumes:
+      - pg_1_data:/bitnami/postgresql
+      - ./wal-archive:/wal-archive
+      - ./config/wal-archive.conf:/opt/bitnami/postgresql/conf/conf.d/zz-wal-archive.conf:ro
+    networks:
+      - postgres-wal-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  pg-2:
+    image: bitnamilegacy/postgresql-repmgr:17.6.0
+    container_name: postgres-wal-pg-2
+    restart: unless-stopped
+    depends_on:
+      pg-0:
+        condition: service_healthy
+    env_file:
+      - ../postgres-wal.env
+    environment:
+      POSTGRESQL_POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      POSTGRESQL_USERNAME: ${POSTGRES_USER}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRESQL_DATABASE: ${POSTGRES_DB}
+      POSTGRESQL_MAX_CONNECTIONS: 300
+      POSTGRESQL_SHARED_PRELOAD_LIBRARIES: pgaudit,repmgr
+      POSTGRESQL_EXTRA_FLAGS: >-
+        -c wal_level=replica
+        -c archive_mode=on
+        -c archive_timeout=60s
+        -c max_wal_senders=16
+        -c max_replication_slots=16
+        -c hot_standby=on
+        -c wal_compression=on
+        -c checkpoint_completion_target=0.9
+        -c shared_buffers=512MB
+        -c effective_cache_size=1536MB
+        -c maintenance_work_mem=128MB
+        -c work_mem=16MB
+      REPMGR_PASSWORD: ${REPMGR_PASSWORD}
+      REPMGR_PRIMARY_HOST: pg-0
+      REPMGR_PARTNER_NODES: pg-0,pg-1,pg-2
+      REPMGR_NODE_NAME: pg-2
+      REPMGR_NODE_NETWORK_NAME: pg-2
+    volumes:
+      - pg_2_data:/bitnami/postgresql
+      - ./wal-archive:/wal-archive
+      - ./config/wal-archive.conf:/opt/bitnami/postgresql/conf/conf.d/zz-wal-archive.conf:ro
+    networks:
+      - postgres-wal-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  pgpool:
+    image: bitnamilegacy/pgpool:4
+    container_name: postgres-wal-pgpool
+    restart: unless-stopped
+    depends_on:
+      pg-0:
+        condition: service_healthy
+      pg-1:
+        condition: service_healthy
+      pg-2:
+        condition: service_healthy
+    env_file:
+      - ../postgres-wal.env
+    environment:
+      PGPOOL_BACKEND_NODES: 0:pg-0:5432,1:pg-1:5432,2:pg-2:5432
+      PGPOOL_SR_CHECK_USER: postgres
+      PGPOOL_SR_CHECK_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      PGPOOL_POSTGRES_USERNAME: postgres
+      PGPOOL_POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      PGPOOL_POSTGRES_CUSTOM_USERS: ${POSTGRES_USER}
+      PGPOOL_POSTGRES_CUSTOM_PASSWORDS: ${POSTGRES_PASSWORD}
+      PGPOOL_ADMIN_USERNAME: ${PGPOOL_ADMIN_USERNAME}
+      PGPOOL_ADMIN_PASSWORD: ${PGPOOL_ADMIN_PASSWORD}
+      PGPOOL_ENABLE_LOAD_BALANCING: "yes"
+      PGPOOL_ENABLE_LOG_CONNECTIONS: "yes"
+      PGPOOL_ENABLE_LOG_PER_NODE_STATEMENT: "no"
+      PGPOOL_NUM_INIT_CHILDREN: 128
+      PGPOOL_MAX_POOL: 4
+      PGPOOL_CHILD_LIFE_TIME: 300
+      PGPOOL_CLIENT_IDLE_LIMIT: 300
+      PGPOOL_CONNECTION_LIFE_TIME: 600
+      PGPOOL_HEALTH_CHECK_PERIOD: 10
+      PGPOOL_HEALTH_CHECK_TIMEOUT: 5
+      PGPOOL_FAILOVER_ON_BACKEND_ERROR: "yes"
+    ports:
+      - "${POSTGRES_HOST_PORT:-55432}:5432"
+    networks:
+      - postgres-wal-network
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=$${POSTGRES_SUPERUSER_PASSWORD} psql -h 127.0.0.1 -U postgres -d postgres -c 'select 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: postgres-wal-exporter
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    depends_on:
+      pgpool:
+        condition: service_healthy
+    env_file:
+      - ../postgres-wal.env
+    environment:
+      DATA_SOURCE_URI: pgpool:5432/${POSTGRES_DB}?sslmode=disable
+      DATA_SOURCE_USER: postgres
+      DATA_SOURCE_PASS: ${POSTGRES_SUPERUSER_PASSWORD}
+    ports:
+      - "${POSTGRES_EXPORTER_HOST_PORT:-9187}:9187"
+    networks:
+      - postgres-wal-network
+
+  backup-api:
+    build:
+      context: ./backup-api
+    container_name: postgres-wal-backup-api
+    restart: unless-stopped
+    depends_on:
+      pg-0:
+        condition: service_healthy
+    env_file:
+      - ../postgres-wal.env
+    ports:
+      - "${BACKUP_API_HOST_PORT:-8090}:${BACKUP_API_PORT:-8080}"
+    volumes:
+      - ./backups:/backups
+      - ./wal-archive:/wal-archive:ro
+    networks:
+      - postgres-wal-network
+    healthcheck:
+      test: ["CMD", "postgres-wal-backup-api", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pg_0_data:
+  pg_1_data:
+  pg_2_data:
+
+networks:
+  postgres-wal-network:
+    name: postgres-wal-network
+    driver: bridge

@@ -1,0 +1,39 @@
+# Runtime backup output. Keep only the folder placeholder.
+/backups/*
+!backups/.gitkeep
+
+# PostgreSQL WAL archive files are generated continuously and can be large.
+/wal-archive/*
+!wal-archive/.gitkeep
+
+# Backup API runtime/build artifacts.
+/backup-api/postgres-wal-backup-api*
+/backup-api/*.exe
+/backup-api/*.test
+/backup-api/coverage.out
+
+# Go test/build artifacts.
+/tests/**/postgres-wal-test*
+/tests/**/*.exe
+/tests/**/*.test
+/tests/**/coverage.out
+
+# Temporary restore/extract workdirs if a run is interrupted.
+/backups/*-work/
+/backups/restore-*/
+
+# PITR restore lab prepared data. These are generated from real backups/WAL.
+/restore-lab/data/*
+!/restore-lab/data/.gitkeep
+/restore-lab/wal/*
+!/restore-lab/wal/.gitkeep
+/restore-lab/work/*
+!/restore-lab/work/.gitkeep
+/restore-lab/wal-download/*
+!/restore-lab/wal-download/.gitkeep
+
+# Local OS/editor noise.
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
