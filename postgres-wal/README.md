@@ -15,6 +15,7 @@ The stack uses `bitnamilegacy/postgresql-repmgr` and `bitnamilegacy/pgpool` beca
 
 Open [architecture.svg](architecture.svg) for the simple diagram.
 Read [architecture.md](architecture.md) for the PHPMaker-focused explanation, scenarios, restore flow, and FAQs.
+Read [HOW-TO-BACKUP-RESTORE.md](HOW-TO-BACKUP-RESTORE.md) for the simple Docker step-by-step backup and restore runbook.
 Read [backup-api.md](backup-api.md) for scheduled S3 backups, WAL upload chains, retention, Swagger, and step-by-step restore concepts.
 Read [restore-lab/README.md](restore-lab/README.md) for the safe physical PITR restore lab.
 
