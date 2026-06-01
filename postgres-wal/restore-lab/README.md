@@ -45,12 +45,37 @@ For local testing, the script copies WAL from:
 postgres-wal/wal-archive
 ```
 
+For S3/MinIO restore testing, ask the API to download the selected chain first:
+
+```powershell
+$headers = @{ "X-Backup-API-Key" = "change-backup-api-key" }
+$body = @{
+  chain_id = "backup-20260528-180000"
+  overwrite = $true
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri http://localhost:8090/v1/pitr/download -Headers $headers -ContentType "application/json" -Body $body
+```
+
+This downloads:
+
+```text
+postgres-wal/backups/backup-20260528-180000.zip
+postgres-wal/backups/pitr-downloads/backup-20260528-180000/wal/
+```
+
 ## Step 2: Prepare The Restore Files
 
 From `postgres-wal`:
 
 ```powershell
 .\restore-lab\prepare-pitr-restore.ps1 -BackupName backup-20260528-180000.zip
+```
+
+From downloaded S3/MinIO chain:
+
+```powershell
+.\restore-lab\prepare-pitr-restore.ps1 -BackupName backup-20260528-180000.zip -WalSource .\backups\pitr-downloads\backup-20260528-180000\wal
 ```
 
 Optional target time:

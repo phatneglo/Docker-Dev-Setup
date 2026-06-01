@@ -29,42 +29,47 @@ import (
 )
 
 type appConfig struct {
-	HTTPAddr           string
-	APIKey             string
-	PostgresHost       string
-	PostgresPort       string
-	PostgresDB         string
-	PostgresUser       string
-	PostgresPassword   string
-	PostgresSuperPass  string
-	BackupDir          string
-	WALDir             string
-	ScheduleEnabled    bool
-	DailyTime          string
-	Timezone           string
-	RetentionCount     int
-	S3Enabled          bool
-	S3Endpoint         string
-	S3Region           string
-	S3Bucket           string
-	S3Prefix           string
-	S3AccessKeyID      string
-	S3SecretAccessKey  string
-	S3ForcePathStyle   bool
-	BackupTimeout      time.Duration
-	SchedulerTickEvery time.Duration
+	HTTPAddr             string
+	APIKey               string
+	PostgresHost         string
+	PostgresPort         string
+	PostgresDB           string
+	PostgresUser         string
+	PostgresPassword     string
+	PostgresSuperPass    string
+	BackupDir            string
+	WALDir               string
+	ScheduleEnabled      bool
+	DailyTime            string
+	Timezone             string
+	RetentionCount       int
+	WALUploadEnabled     bool
+	WALUploadInterval    time.Duration
+	WALUploadBatchSize   int
+	WALUploadForceSwitch bool
+	S3Enabled            bool
+	S3Endpoint           string
+	S3Region             string
+	S3Bucket             string
+	S3Prefix             string
+	S3AccessKeyID        string
+	S3SecretAccessKey    string
+	S3ForcePathStyle     bool
+	BackupTimeout        time.Duration
+	SchedulerTickEvery   time.Duration
 }
 
 type server struct {
-	cfg      appConfig
-	s3       *s3.Client
-	mu       sync.Mutex
-	running  bool
-	lastRun  *backupResult
-	started  time.Time
-	state    backupState
-	stateMu  sync.Mutex
-	stateLoc string
+	cfg           appConfig
+	s3            *s3.Client
+	mu            sync.Mutex
+	running       bool
+	lastRun       *backupResult
+	lastWALUpload *walUploadResult
+	started       time.Time
+	state         backupState
+	stateMu       sync.Mutex
+	stateLoc      string
 }
 
 type backupState struct {
@@ -139,6 +144,38 @@ type restoreResult struct {
 	Message        string    `json:"message"`
 }
 
+type pitrDownloadRequest struct {
+	ChainID   string `json:"chain_id"`
+	Latest    bool   `json:"latest"`
+	Overwrite bool   `json:"overwrite"`
+}
+
+type pitrDownloadResult struct {
+	ChainID        string    `json:"chain_id"`
+	BackupName     string    `json:"backup_name"`
+	BackupPath     string    `json:"backup_path"`
+	S3BackupKey    string    `json:"s3_backup_key"`
+	WALPrefix      string    `json:"wal_prefix"`
+	WALDownloadDir string    `json:"wal_download_dir"`
+	WALDownloaded  int       `json:"wal_downloaded"`
+	StartedAt      time.Time `json:"started_at"`
+	FinishedAt     time.Time `json:"finished_at"`
+	Duration       string    `json:"duration"`
+	NextStep       string    `json:"next_step"`
+}
+
+type walUploadResult struct {
+	StartedAt      time.Time `json:"started_at"`
+	FinishedAt     time.Time `json:"finished_at"`
+	Duration       string    `json:"duration"`
+	Uploaded       int       `json:"uploaded"`
+	ActiveBackupID string    `json:"active_backup_id,omitempty"`
+	WALPrefix      string    `json:"wal_prefix,omitempty"`
+	Automatic      bool      `json:"automatic"`
+	ForcedSwitch   bool      `json:"forced_switch"`
+	Error          string    `json:"error,omitempty"`
+}
+
 type pitrChain struct {
 	ID               string    `json:"id"`
 	BackupFile       string    `json:"backup_file"`
@@ -185,6 +222,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go srv.scheduler(ctx)
+	go srv.walUploader(ctx)
 
 	mux := srv.routes()
 
@@ -230,30 +268,34 @@ func newServer(cfg appConfig) (*server, error) {
 
 func loadConfig() appConfig {
 	return appConfig{
-		HTTPAddr:           ":" + env("BACKUP_API_PORT", "8080"),
-		APIKey:             env("BACKUP_API_KEY", ""),
-		PostgresHost:       env("BACKUP_POSTGRES_HOST", "pg-0"),
-		PostgresPort:       env("BACKUP_POSTGRES_PORT", "5432"),
-		PostgresDB:         env("POSTGRES_DB", "appdb"),
-		PostgresUser:       env("POSTGRES_USER", "appuser"),
-		PostgresPassword:   env("POSTGRES_PASSWORD", ""),
-		PostgresSuperPass:  env("POSTGRES_SUPERUSER_PASSWORD", ""),
-		BackupDir:          env("BACKUP_LOCAL_DIR", "/backups"),
-		WALDir:             env("BACKUP_WAL_DIR", "/wal-archive"),
-		ScheduleEnabled:    envBool("BACKUP_SCHEDULE_ENABLED", true),
-		DailyTime:          env("BACKUP_DAILY_TIME", "02:00"),
-		Timezone:           env("BACKUP_TIMEZONE", "Asia/Manila"),
-		RetentionCount:     envInt("BACKUP_RETENTION_COUNT", 7),
-		S3Enabled:          envBool("BACKUP_S3_ENABLED", false),
-		S3Endpoint:         env("BACKUP_S3_ENDPOINT", ""),
-		S3Region:           env("BACKUP_S3_REGION", "us-east-1"),
-		S3Bucket:           env("BACKUP_S3_BUCKET", ""),
-		S3Prefix:           cleanPrefix(env("BACKUP_S3_PREFIX", "postgres-wal")),
-		S3AccessKeyID:      env("BACKUP_S3_ACCESS_KEY_ID", ""),
-		S3SecretAccessKey:  env("BACKUP_S3_SECRET_ACCESS_KEY", ""),
-		S3ForcePathStyle:   envBool("BACKUP_S3_FORCE_PATH_STYLE", true),
-		BackupTimeout:      time.Duration(envInt("BACKUP_TIMEOUT_MINUTES", 120)) * time.Minute,
-		SchedulerTickEvery: 30 * time.Second,
+		HTTPAddr:             ":" + env("BACKUP_API_PORT", "8080"),
+		APIKey:               env("BACKUP_API_KEY", ""),
+		PostgresHost:         env("BACKUP_POSTGRES_HOST", "pg-0"),
+		PostgresPort:         env("BACKUP_POSTGRES_PORT", "5432"),
+		PostgresDB:           env("POSTGRES_DB", "appdb"),
+		PostgresUser:         env("POSTGRES_USER", "appuser"),
+		PostgresPassword:     env("POSTGRES_PASSWORD", ""),
+		PostgresSuperPass:    env("POSTGRES_SUPERUSER_PASSWORD", ""),
+		BackupDir:            env("BACKUP_LOCAL_DIR", "/backups"),
+		WALDir:               env("BACKUP_WAL_DIR", "/wal-archive"),
+		ScheduleEnabled:      envBool("BACKUP_SCHEDULE_ENABLED", true),
+		DailyTime:            env("BACKUP_DAILY_TIME", "02:00"),
+		Timezone:             env("BACKUP_TIMEZONE", "Asia/Manila"),
+		RetentionCount:       envInt("BACKUP_RETENTION_COUNT", 7),
+		WALUploadEnabled:     envBool("BACKUP_WAL_UPLOAD_ENABLED", true),
+		WALUploadInterval:    time.Duration(envInt("BACKUP_WAL_UPLOAD_INTERVAL_SECONDS", 60)) * time.Second,
+		WALUploadBatchSize:   envInt("BACKUP_WAL_UPLOAD_BATCH_SIZE", 10),
+		WALUploadForceSwitch: envBool("BACKUP_WAL_UPLOAD_FORCE_SWITCH", false),
+		S3Enabled:            envBool("BACKUP_S3_ENABLED", false),
+		S3Endpoint:           env("BACKUP_S3_ENDPOINT", ""),
+		S3Region:             env("BACKUP_S3_REGION", "us-east-1"),
+		S3Bucket:             env("BACKUP_S3_BUCKET", ""),
+		S3Prefix:             cleanPrefix(env("BACKUP_S3_PREFIX", "postgres-wal")),
+		S3AccessKeyID:        env("BACKUP_S3_ACCESS_KEY_ID", ""),
+		S3SecretAccessKey:    env("BACKUP_S3_SECRET_ACCESS_KEY", ""),
+		S3ForcePathStyle:     envBool("BACKUP_S3_FORCE_PATH_STYLE", true),
+		BackupTimeout:        time.Duration(envInt("BACKUP_TIMEOUT_MINUTES", 120)) * time.Minute,
+		SchedulerTickEvery:   30 * time.Second,
 	}
 }
 
@@ -294,6 +336,72 @@ func (s *server) scheduler(ctx context.Context) {
 			}()
 		}
 	}
+}
+
+func (s *server) walUploader(ctx context.Context) {
+	if !s.cfg.WALUploadEnabled {
+		log.Print("automatic WAL upload disabled")
+		return
+	}
+	if !s.cfg.S3Enabled {
+		log.Print("automatic WAL upload disabled because S3 is disabled")
+		return
+	}
+	interval := s.cfg.WALUploadInterval
+	if interval < 10*time.Second {
+		interval = 10 * time.Second
+	}
+	log.Printf("automatic WAL upload enabled every %s, batch_size=%d, force_switch=%v", interval, s.cfg.WALUploadBatchSize, s.cfg.WALUploadForceSwitch)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			uploadCtx, cancel := context.WithTimeout(ctx, interval)
+			result := s.runWALUpload(uploadCtx, true, s.cfg.WALUploadBatchSize)
+			cancel()
+			if result.Error != "" && !strings.Contains(result.Error, "no active PITR backup generation") {
+				log.Printf("automatic WAL upload failed: %s", result.Error)
+			}
+		}
+	}
+}
+
+func (s *server) runWALUpload(ctx context.Context, automatic bool, limit int) *walUploadResult {
+	started := time.Now().UTC()
+	result := &walUploadResult{
+		StartedAt:    started,
+		Automatic:    automatic,
+		ForcedSwitch: s.cfg.WALUploadForceSwitch,
+	}
+	if s.cfg.WALUploadForceSwitch {
+		if _, err := s.scalar(ctx, "select pg_switch_wal()"); err != nil {
+			result.Error = "pg_switch_wal failed: " + err.Error()
+			result.FinishedAt = time.Now().UTC()
+			result.Duration = result.FinishedAt.Sub(result.StartedAt).Round(time.Second).String()
+			s.recordWALUpload(result)
+			return result
+		}
+	}
+	count, err := s.uploadPendingWAL(ctx, limit)
+	if err != nil {
+		result.Error = err.Error()
+	}
+	result.Uploaded = count
+	result.ActiveBackupID, result.WALPrefix = s.activeGenerationRef()
+	result.FinishedAt = time.Now().UTC()
+	result.Duration = result.FinishedAt.Sub(result.StartedAt).Round(time.Second).String()
+	s.recordWALUpload(result)
+	return result
+}
+
+func (s *server) recordWALUpload(result *walUploadResult) {
+	s.mu.Lock()
+	s.lastWALUpload = result
+	s.mu.Unlock()
 }
 
 func (s *server) runBackup(ctx context.Context) (*backupResult, error) {
@@ -426,7 +534,7 @@ func (s *server) runBackup(ctx context.Context) (*backupResult, error) {
 		return nil, err
 	}
 
-	walUploaded, err := s.uploadPendingWAL(ctx)
+	walUploaded, err := s.uploadPendingWAL(ctx, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -458,7 +566,7 @@ func (s *server) runBackup(ctx context.Context) (*backupResult, error) {
 	return result, nil
 }
 
-func (s *server) uploadPendingWAL(ctx context.Context) (int, error) {
+func (s *server) uploadPendingWAL(ctx context.Context, limit int) (int, error) {
 	if !s.cfg.S3Enabled {
 		return 0, nil
 	}
@@ -504,6 +612,9 @@ func (s *server) uploadPendingWAL(ctx context.Context) (int, error) {
 		s.state.UploadedWAL[name] = time.Now().UTC()
 		s.stateMu.Unlock()
 		uploaded++
+		if limit > 0 && uploaded >= limit {
+			break
+		}
 	}
 	return uploaded, s.saveState()
 }
@@ -771,25 +882,31 @@ func (s *server) status(w http.ResponseWriter, _ *http.Request) {
 	s.mu.Lock()
 	running := s.running
 	last := s.lastRun
+	lastWALUpload := s.lastWALUpload
 	s.mu.Unlock()
 	s.stateMu.Lock()
 	activeBackupID := s.state.ActiveBackupID
 	s.stateMu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"running":             running,
-		"started_at":          s.started,
-		"schedule_enabled":    s.cfg.ScheduleEnabled,
-		"daily_time":          s.cfg.DailyTime,
-		"timezone":            s.cfg.Timezone,
-		"retention_count":     s.cfg.RetentionCount,
-		"s3_enabled":          s.cfg.S3Enabled,
-		"s3_bucket":           s.cfg.S3Bucket,
-		"s3_prefix":           s.cfg.S3Prefix,
-		"backup_dir":          s.cfg.BackupDir,
-		"wal_dir":             s.cfg.WALDir,
-		"last_backup_result":  last,
-		"active_backup_id":    activeBackupID,
-		"restore_requirement": "base backup ZIP + WAL archive files",
+		"running":                 running,
+		"started_at":              s.started,
+		"schedule_enabled":        s.cfg.ScheduleEnabled,
+		"daily_time":              s.cfg.DailyTime,
+		"timezone":                s.cfg.Timezone,
+		"retention_count":         s.cfg.RetentionCount,
+		"wal_upload_enabled":      s.cfg.WALUploadEnabled,
+		"wal_upload_interval":     s.cfg.WALUploadInterval.String(),
+		"wal_upload_batch_size":   s.cfg.WALUploadBatchSize,
+		"wal_upload_force_switch": s.cfg.WALUploadForceSwitch,
+		"s3_enabled":              s.cfg.S3Enabled,
+		"s3_bucket":               s.cfg.S3Bucket,
+		"s3_prefix":               s.cfg.S3Prefix,
+		"backup_dir":              s.cfg.BackupDir,
+		"wal_dir":                 s.cfg.WALDir,
+		"last_backup_result":      last,
+		"last_wal_upload":         lastWALUpload,
+		"active_backup_id":        activeBackupID,
+		"restore_requirement":     "base backup ZIP + WAL archive files",
 	})
 }
 
@@ -886,37 +1003,34 @@ func (s *server) walStatus(w http.ResponseWriter, _ *http.Request) {
 		walPrefix = gen.WALPrefix
 	}
 	s.stateMu.Unlock()
+	s.mu.Lock()
+	lastWALUpload := s.lastWALUpload
+	s.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"wal_dir":               s.cfg.WALDir,
-		"wal_files_local":       len(files),
-		"active_backup_id":      activeID,
-		"active_start_wal":      startWAL,
-		"active_wal_prefix":     walPrefix,
-		"active_wal_uploaded":   uploaded,
-		"legacy_uploaded_known": legacyUploaded,
-		"s3_enabled":            s.cfg.S3Enabled,
-		"note":                  "WAL upload is organized by PITR generation. Run a base backup first, then /v1/wal/upload sends later WAL to that backup's folder.",
+		"wal_dir":                       s.cfg.WALDir,
+		"wal_files_local":               len(files),
+		"active_backup_id":              activeID,
+		"active_start_wal":              startWAL,
+		"active_wal_prefix":             walPrefix,
+		"active_wal_uploaded":           uploaded,
+		"legacy_uploaded_known":         legacyUploaded,
+		"automatic_upload_enabled":      s.cfg.WALUploadEnabled,
+		"automatic_upload_interval":     s.cfg.WALUploadInterval.String(),
+		"automatic_upload_batch_size":   s.cfg.WALUploadBatchSize,
+		"automatic_upload_force_switch": s.cfg.WALUploadForceSwitch,
+		"last_wal_upload":               lastWALUpload,
+		"s3_enabled":                    s.cfg.S3Enabled,
+		"note":                          "WAL upload is organized by PITR generation. Run a base backup first, then /v1/wal/upload sends later WAL to that backup's folder.",
 	})
 }
 
 func (s *server) uploadWALHTTP(w http.ResponseWriter, r *http.Request) {
-	count, err := s.uploadPendingWAL(r.Context())
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+	result := s.runWALUpload(r.Context(), false, 0)
+	if result.Error != "" {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: result.Error})
 		return
 	}
-	s.stateMu.Lock()
-	activeID := s.state.ActiveBackupID
-	walPrefix := ""
-	if gen := s.state.Generations[activeID]; gen != nil {
-		walPrefix = gen.WALPrefix
-	}
-	s.stateMu.Unlock()
-	writeJSON(w, http.StatusOK, map[string]any{
-		"wal_uploaded":     count,
-		"active_backup_id": activeID,
-		"wal_prefix":       walPrefix,
-	})
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *server) s3Status(w http.ResponseWriter, r *http.Request) {
@@ -975,6 +1089,22 @@ func (s *server) pitrChainsHTTP(w http.ResponseWriter, _ *http.Request) {
 		"chains": s.pitrChainList(),
 		"note":   "Each chain is one base backup plus the WAL folder used to replay changes after that backup.",
 	})
+}
+
+func (s *server) pitrDownloadHTTP(w http.ResponseWriter, r *http.Request) {
+	var req pitrDownloadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON body: " + err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), s.cfg.BackupTimeout)
+	defer cancel()
+	result, err := s.downloadPITRChain(ctx, req)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *server) swaggerUI(w http.ResponseWriter, _ *http.Request) {
@@ -1157,6 +1287,120 @@ func (s *server) listS3Objects(ctx context.Context, prefix string, limit int) ([
 	return objects, nil
 }
 
+func (s *server) listAllS3Objects(ctx context.Context, prefix string) ([]s3ObjectInfo, error) {
+	if s.s3 == nil {
+		return nil, errors.New("S3 client is not configured")
+	}
+	var objects []s3ObjectInfo
+	paginator := s3.NewListObjectsV2Paginator(s.s3, &s3.ListObjectsV2Input{
+		Bucket: aws.String(s.cfg.S3Bucket),
+		Prefix: aws.String(prefix),
+	})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, obj := range page.Contents {
+			objects = append(objects, s3ObjectInfo{
+				Key:          aws.ToString(obj.Key),
+				Size:         aws.ToInt64(obj.Size),
+				LastModified: aws.ToTime(obj.LastModified),
+			})
+		}
+	}
+	sort.Slice(objects, func(i, j int) bool {
+		return objects[i].Key < objects[j].Key
+	})
+	return objects, nil
+}
+
+func (s *server) downloadPITRChain(ctx context.Context, req pitrDownloadRequest) (*pitrDownloadResult, error) {
+	if !s.cfg.S3Enabled || s.s3 == nil {
+		return nil, errors.New("S3 is not enabled")
+	}
+	started := time.Now().UTC()
+	gen, err := s.selectGeneration(req.ChainID, req.Latest)
+	if err != nil {
+		return nil, err
+	}
+	if gen.S3BackupKey == "" {
+		return nil, errors.New("selected chain has no S3 backup key; create a new S3-enabled backup first")
+	}
+	if gen.WALPrefix == "" {
+		return nil, errors.New("selected chain has no WAL prefix")
+	}
+
+	backupName := s3ObjectBase(gen.S3BackupKey)
+	if backupName == "" {
+		return nil, errors.New("selected chain has an invalid S3 backup key")
+	}
+	backupPath := filepath.Join(s.cfg.BackupDir, backupName)
+	if err := s.downloadS3Object(ctx, gen.S3BackupKey, backupPath, req.Overwrite); err != nil {
+		return nil, err
+	}
+
+	walDir := filepath.Join(s.cfg.BackupDir, "pitr-downloads", gen.ID, "wal")
+	if err := os.MkdirAll(walDir, 0755); err != nil {
+		return nil, err
+	}
+	walObjects, err := s.listAllS3Objects(ctx, gen.WALPrefix)
+	if err != nil {
+		return nil, err
+	}
+	downloaded := 0
+	for _, obj := range walObjects {
+		name := s3ObjectBase(obj.Key)
+		if name == "" || !isWALArchiveName(name) {
+			continue
+		}
+		if err := s.downloadS3Object(ctx, obj.Key, filepath.Join(walDir, name), req.Overwrite); err != nil {
+			return nil, err
+		}
+		downloaded++
+	}
+	finished := time.Now().UTC()
+	return &pitrDownloadResult{
+		ChainID:        gen.ID,
+		BackupName:     backupName,
+		BackupPath:     backupPath,
+		S3BackupKey:    gen.S3BackupKey,
+		WALPrefix:      gen.WALPrefix,
+		WALDownloadDir: walDir,
+		WALDownloaded:  downloaded,
+		StartedAt:      started,
+		FinishedAt:     finished,
+		Duration:       finished.Sub(started).Round(time.Second).String(),
+		NextStep:       "Run restore-lab/prepare-pitr-restore.ps1 with this backup_name and use backups/pitr-downloads/<chain_id>/wal as -WalSource.",
+	}, nil
+}
+
+func (s *server) downloadS3Object(ctx context.Context, key, outPath string, overwrite bool) error {
+	if !overwrite {
+		if _, err := os.Stat(outPath); err == nil {
+			return nil
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+		return err
+	}
+	out, err := os.Create(outPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	obj, err := s.s3.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.cfg.S3Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return err
+	}
+	defer obj.Body.Close()
+	_, err = io.Copy(out, obj.Body)
+	return err
+}
+
 func (s *server) pitrChainList() []pitrChain {
 	s.stateMu.Lock()
 	defer s.stateMu.Unlock()
@@ -1182,6 +1426,54 @@ func (s *server) pitrChainList() []pitrChain {
 		return chains[i].FinishedAt.After(chains[j].FinishedAt)
 	})
 	return chains
+}
+
+func (s *server) selectGeneration(chainID string, latest bool) (*backupGeneration, error) {
+	chainID = strings.TrimSpace(chainID)
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+	if chainID != "" && !latest {
+		gen := s.state.Generations[chainID]
+		if gen == nil {
+			return nil, fmt.Errorf("PITR chain %s not found", chainID)
+		}
+		copy := *gen
+		return &copy, nil
+	}
+	var selected *backupGeneration
+	for _, gen := range s.state.Generations {
+		if selected == nil || gen.FinishedAt.After(selected.FinishedAt) {
+			copy := *gen
+			selected = &copy
+		}
+	}
+	if selected == nil {
+		return nil, errors.New("no PITR chains available; run /v1/backups/run first")
+	}
+	return selected, nil
+}
+
+func (s *server) activeGenerationRef() (string, string) {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+	activeID := s.state.ActiveBackupID
+	walPrefix := ""
+	if gen := s.state.Generations[activeID]; gen != nil {
+		walPrefix = gen.WALPrefix
+	}
+	return activeID, walPrefix
+}
+
+func s3ObjectBase(key string) string {
+	key = strings.TrimRight(key, "/")
+	if key == "" {
+		return ""
+	}
+	idx := strings.LastIndex(key, "/")
+	if idx >= 0 {
+		return key[idx+1:]
+	}
+	return key
 }
 
 func localBackups(dir string) ([]backupInfo, error) {
@@ -1546,6 +1838,30 @@ const openAPIJSON = `{
       "get": {
         "summary": "List PITR restore chains",
         "responses": {"200": {"description": "Base backup and WAL folder chains"}}
+      }
+    },
+    "/v1/pitr/download": {
+      "post": {
+        "summary": "Download a PITR chain from S3 into local restore staging folders",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chain_id": {"type": "string", "example": "backup-20260528-180000"},
+                  "latest": {"type": "boolean", "example": true},
+                  "overwrite": {"type": "boolean", "example": true}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Downloaded PITR chain"},
+          "400": {"description": "Invalid request or download failed"}
+        }
       }
     },
     "/v1/wal/status": {

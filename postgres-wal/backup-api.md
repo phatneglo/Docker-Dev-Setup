@@ -38,6 +38,10 @@ BACKUP_SCHEDULE_ENABLED=true
 BACKUP_DAILY_TIME=02:00
 BACKUP_TIMEZONE=Asia/Manila
 BACKUP_RETENTION_COUNT=7
+BACKUP_WAL_UPLOAD_ENABLED=true
+BACKUP_WAL_UPLOAD_INTERVAL_SECONDS=60
+BACKUP_WAL_UPLOAD_BATCH_SIZE=10
+BACKUP_WAL_UPLOAD_FORCE_SWITCH=false
 ```
 
 S3 settings:
@@ -110,6 +114,48 @@ Student analogy:
 - WAL files are the new pages written after 6:00 PM.
 - The API keeps the new pages in the folder for that photocopy.
 - During full PITR restore, PostgreSQL starts from the photocopy and replays the new pages.
+
+## Automatic WAL Upload
+
+The API can upload WAL automatically. This is the correct way to make S3 stay close to the latest database activity.
+
+Important detail:
+
+```text
+PostgreSQL does not upload one file per SQL query.
+Queries are written into WAL first.
+When PostgreSQL archives a WAL segment, the backup API uploads that segment to S3.
+```
+
+Settings:
+
+```env
+BACKUP_WAL_UPLOAD_ENABLED=true
+BACKUP_WAL_UPLOAD_INTERVAL_SECONDS=60
+BACKUP_WAL_UPLOAD_BATCH_SIZE=10
+BACKUP_WAL_UPLOAD_FORCE_SWITCH=false
+```
+
+Meaning:
+
+- `BACKUP_WAL_UPLOAD_ENABLED=true` starts the background WAL uploader.
+- `BACKUP_WAL_UPLOAD_INTERVAL_SECONDS=60` scans for new archived WAL every 60 seconds.
+- `BACKUP_WAL_UPLOAD_BATCH_SIZE=10` uploads at most 10 WAL files per scan so upload is controlled.
+- `BACKUP_WAL_UPLOAD_FORCE_SWITCH=false` avoids forcing extra WAL files every interval.
+
+If you want more aggressive near-real-time backup, set:
+
+```env
+BACKUP_WAL_UPLOAD_FORCE_SWITCH=true
+```
+
+Tradeoff:
+
+```text
+More fresh recovery point, but more WAL files and more S3 storage.
+```
+
+For most apps, keep `archive_timeout=60s` and uploader interval `60s`. That means S3 should usually be within about 1 to 2 minutes of the latest archived activity, assuming S3 is reachable.
 
 ## What Is Stored?
 
@@ -244,6 +290,8 @@ Upload pending WAL files:
 Invoke-RestMethod -Method Post -Uri http://localhost:8090/v1/wal/upload -Headers $headers
 ```
 
+Manual upload is still useful for testing, but normal operation should use the automatic uploader.
+
 List PITR chains:
 
 ```powershell
@@ -251,6 +299,28 @@ Invoke-RestMethod -Uri http://localhost:8090/v1/pitr/chains -Headers $headers
 ```
 
 This tells you which base backup belongs to which WAL folder.
+
+Download the latest S3 chain into local restore staging:
+
+```powershell
+$body = @{
+  latest = $true
+  overwrite = $true
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri http://localhost:8090/v1/pitr/download -Headers $headers -ContentType "application/json" -Body $body
+```
+
+Download a specific S3 chain:
+
+```powershell
+$body = @{
+  chain_id = "backup-YYYYMMDD-HHMMSS"
+  overwrite = $true
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri http://localhost:8090/v1/pitr/download -Headers $headers -ContentType "application/json" -Body $body
+```
 
 For your MinIO archive setup, open the console on port `9011`, then browse:
 
@@ -351,7 +421,14 @@ cd D:\TOOLS\DOCKER-DEV\postgres-wal
 $headers = @{ "X-Backup-API-Key" = "change-backup-api-key" }
 Invoke-RestMethod -Uri http://localhost:8090/v1/pitr/chains -Headers $headers | ConvertTo-Json -Depth 8
 
-.\restore-lab\prepare-pitr-restore.ps1 -BackupName backup-YYYYMMDD-HHMMSS.zip
+$body = @{
+  chain_id = "backup-YYYYMMDD-HHMMSS"
+  overwrite = $true
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri http://localhost:8090/v1/pitr/download -Headers $headers -ContentType "application/json" -Body $body
+
+.\restore-lab\prepare-pitr-restore.ps1 -BackupName backup-YYYYMMDD-HHMMSS.zip -WalSource .\backups\pitr-downloads\backup-YYYYMMDD-HHMMSS\wal
 
 docker compose -f docker-compose.restore.yml --env-file ..\postgres-wal.env down -v
 docker compose -f docker-compose.restore.yml --env-file ..\postgres-wal.env up -d
@@ -381,7 +458,7 @@ Example:
 2. The API marks `backup-20260528-180000` as the active PITR chain.
 3. Users add new records at 6:10 PM, 6:30 PM, and 7:00 PM.
 4. PostgreSQL writes those changes into WAL.
-5. You call `/v1/wal/upload`, or schedule it frequently.
+5. The automatic WAL uploader scans every `BACKUP_WAL_UPLOAD_INTERVAL_SECONDS`.
 6. The API uploads pending WAL to `app-backup/wal/backup-20260528-180000/`.
 7. If you call `/v1/restores/run`, you restore only the 6:00 PM SQL dump.
 8. If you perform full PITR, PostgreSQL restores the 6:00 PM base backup and replays the WAL after 6:00 PM.
@@ -419,6 +496,7 @@ Important endpoints:
 - `POST /v1/backups/run` creates a new base backup and active PITR chain.
 - `POST /v1/wal/upload` uploads pending WAL to the active PITR chain.
 - `GET /v1/pitr/chains` shows which base backup and WAL folder belong together.
+- `POST /v1/pitr/download` downloads a selected S3 chain for restore-lab.
 - `GET /v1/s3/status` shows recent S3/MinIO objects.
 - `GET /v1/restores/options` lists ZIP files usable by the database-level restore endpoint.
 - `POST /v1/restores/run` restores only the logical SQL dump into a new database.

@@ -98,9 +98,27 @@ app-backup/base/backup-YYYYMMDD-HHMMSS.zip
 app-backup/wal/backup-YYYYMMDD-HHMMSS/
 ```
 
+Automatic WAL upload is controlled by:
+
+```env
+BACKUP_WAL_UPLOAD_ENABLED=true
+BACKUP_WAL_UPLOAD_INTERVAL_SECONDS=60
+BACKUP_WAL_UPLOAD_BATCH_SIZE=10
+BACKUP_WAL_UPLOAD_FORCE_SWITCH=false
+```
+
+This means the API continuously uploads archived WAL to the active chain. It does not upload one file for every SQL query; it uploads completed PostgreSQL WAL files.
+
 Test full physical PITR in a separate container:
 
 ```powershell
+$body = @{
+  latest = $true
+  overwrite = $true
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri http://localhost:8090/v1/pitr/download -Headers $headers -ContentType "application/json" -Body $body
+
 .\restore-lab\prepare-pitr-restore.ps1 -BackupName backup-YYYYMMDD-HHMMSS.zip
 docker compose -f docker-compose.restore.yml --env-file ..\postgres-wal.env down -v
 docker compose -f docker-compose.restore.yml --env-file ..\postgres-wal.env up -d

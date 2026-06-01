@@ -20,6 +20,7 @@ func (s *server) routes() *http.ServeMux {
 
 	mux.Handle("GET /v1/s3/status", s.auth(http.HandlerFunc(s.s3Status)))
 	mux.Handle("GET /v1/pitr/chains", s.auth(http.HandlerFunc(s.pitrChainsHTTP)))
+	mux.Handle("POST /v1/pitr/download", s.auth(http.HandlerFunc(s.pitrDownloadHTTP)))
 	mux.Handle("GET /v1/wal/status", s.auth(http.HandlerFunc(s.walStatus)))
 	mux.Handle("POST /v1/wal/upload", s.auth(http.HandlerFunc(s.uploadWALHTTP)))
 
