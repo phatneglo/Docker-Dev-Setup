@@ -1,0 +1,148 @@
+/*
+  ITBS PNP Mail - Roundcube Elastic Theme Overlay
+  You can customize the colors below and rebuild/restart Docker.
+*/
+:root {
+  --itbs-primary: #0B2E59;
+  --itbs-primary-2: #0F4C81;
+  --itbs-gold: #F2C94C;
+  --itbs-red: #C62828;
+  --itbs-bg: #F5F7FB;
+  --itbs-text: #102033;
+  --itbs-radius: 18px;
+}
+
+body {
+  background: var(--itbs-bg);
+}
+
+#layout-menu,
+#layout-sidebar .header,
+#layout-list .header,
+#layout-content .header,
+#layout-footer {
+  border-color: rgba(11, 46, 89, .12) !important;
+}
+
+#layout-menu {
+  background: linear-gradient(180deg, var(--itbs-primary), #061B34) !important;
+}
+
+#layout-menu .popover-header,
+#layout-menu .toolbar,
+#layout-menu .menu a,
+#taskmenu a {
+  color: rgba(255,255,255,.90) !important;
+}
+
+#taskmenu a.selected,
+#taskmenu a:hover {
+  background: rgba(242, 201, 76, .18) !important;
+  color: #fff !important;
+}
+
+#taskmenu a.selected:before,
+#taskmenu a:hover:before {
+  color: var(--itbs-gold) !important;
+}
+
+.button.primary,
+.btn-primary,
+input.button.mainaction,
+button.mainaction,
+button.primary,
+.ui-dialog .ui-dialog-buttonpane button.mainaction {
+  background: linear-gradient(135deg, var(--itbs-primary), var(--itbs-primary-2)) !important;
+  border-color: var(--itbs-primary) !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+  box-shadow: 0 8px 18px rgba(11, 46, 89, .20);
+}
+
+.button.primary:hover,
+.btn-primary:hover,
+input.button.mainaction:hover,
+button.mainaction:hover,
+button.primary:hover {
+  filter: brightness(1.08);
+}
+
+#message-header,
+#messagebody,
+#compose-content,
+.listing li.selected,
+.listing tr.selected td,
+.records-table tr.selected td {
+  background-color: rgba(11, 46, 89, .06) !important;
+}
+
+#messagelist tr.unread td,
+#messagelist li.unread {
+  font-weight: 700;
+}
+
+#messagelist tr.flagged td,
+#messagelist li.flagged {
+  border-left: 4px solid var(--itbs-gold) !important;
+}
+
+.task-login {
+  background: var(--itbs-primary) url('../images/itbs-pnp/login-bg.svg') center/cover no-repeat fixed !important;
+}
+
+.task-login #layout-content {
+  background: transparent !important;
+}
+
+.task-login #login-form {
+  border-radius: 28px !important;
+  border: 1px solid rgba(255,255,255,.22) !important;
+  box-shadow: 0 25px 70px rgba(0,0,0,.35) !important;
+  background: rgba(255,255,255,.96) !important;
+  backdrop-filter: blur(8px);
+  padding: 28px !important;
+}
+
+.task-login #logo,
+#logo {
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+}
+
+.task-login input[type="text"],
+.task-login input[type="password"],
+.task-login input[type="email"] {
+  border-radius: 14px !important;
+  border: 1px solid rgba(11,46,89,.20) !important;
+  padding: 12px 14px !important;
+}
+
+.task-login .formbuttons .button {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 14px !important;
+}
+
+#layout-content .iframe-wrapper,
+#messagecontent,
+#compose-content,
+#contacts-table,
+#messagelistcontainer {
+  border-radius: var(--itbs-radius);
+}
+
+.quota-widget .value {
+  background-color: var(--itbs-gold) !important;
+}
+
+/* Small branded helper text on login page where supported by Elastic layout */
+.task-login #login-footer:after {
+  content: "Secure Webmail Portal";
+  display: block;
+  margin-top: 8px;
+  color: rgba(255,255,255,.82);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-size: 11px;
+}

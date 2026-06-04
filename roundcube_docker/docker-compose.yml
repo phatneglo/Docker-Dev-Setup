@@ -1,0 +1,139 @@
+services:
+  mail-bootstrap:
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    restart: "no"
+    depends_on:
+      mailserver:
+        condition: service_started
+    environment:
+      MAIL_ADMIN_ADDRESS: ${MAIL_ADMIN_ADDRESS:-admin@itbsstudio.com}
+      MAIL_ADMIN_PASSWORD: ${MAIL_ADMIN_PASSWORD:-ChangeMeNow123!}
+    entrypoint:
+      - /bin/sh
+      - -lc
+      - |
+        set -eu
+        accounts_file=/tmp/docker-mailserver/postfix-accounts.cf
+        if [ -f "$$accounts_file" ] && grep -q "^$$MAIL_ADMIN_ADDRESS|" "$$accounts_file"; then
+          echo "Bootstrap mailbox already present: $$MAIL_ADMIN_ADDRESS"
+        else
+          echo "Creating bootstrap mailbox: $$MAIL_ADMIN_ADDRESS"
+          setup email add "$$MAIL_ADMIN_ADDRESS" "$$MAIL_ADMIN_PASSWORD"
+        fi
+    volumes:
+      - ./data/mailserver/config:/tmp/docker-mailserver
+
+  mailserver:
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-itbs-pnp-mail}-mailserver
+    hostname: ${MAIL_HOSTNAME:-mail}
+    domainname: ${MAIL_DOMAIN:-itbsstudio.com}
+    restart: unless-stopped
+    ports:
+      - "${MAIL_SMTP_PORT:-25}:25"
+      - "${MAIL_SMTPS_PORT:-465}:465"
+      - "${MAIL_SUBMISSION_PORT:-587}:587"
+      - "${MAIL_IMAP_PORT:-143}:143"
+      - "${MAIL_IMAPS_PORT:-993}:993"
+    environment:
+      OVERRIDE_HOSTNAME: ${MAIL_FQDN:-mail.itbsstudio.com}
+      LOG_LEVEL: ${MAIL_LOG_LEVEL:-info}
+      TZ: ${TZ:-Asia/Manila}
+      ENABLE_IMAP: 1
+      ENABLE_POP3: 0
+      SSL_TYPE: ${MAIL_SSL_TYPE:-}
+      SPOOF_PROTECTION: 1
+      ENABLE_CLAMAV: 0
+      ENABLE_FAIL2BAN: 0
+      ENABLE_SPAMASSASSIN: 0
+      ONE_DIR: 1
+    volumes:
+      - ./data/mailserver/mail-data:/var/mail
+      - ./data/mailserver/mail-state:/var/mail-state
+      - ./data/mailserver/mail-logs:/var/log/mail
+      - ./data/mailserver/config:/tmp/docker-mailserver
+
+  roundcube:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-itbs-pnp-mail}-roundcube
+    restart: unless-stopped
+    depends_on:
+      mail-bootstrap:
+        condition: service_completed_successfully
+      mailserver:
+        condition: service_started
+      db:
+        condition: service_healthy
+      ai-api:
+        condition: service_healthy
+    ports:
+      - "${ROUNDCUBE_HTTP_PORT:-8080}:80"
+    environment:
+      ROUNDCUBEMAIL_DB_TYPE: mysql
+      ROUNDCUBEMAIL_DB_HOST: db
+      ROUNDCUBEMAIL_DB_PORT: 3306
+      ROUNDCUBEMAIL_DB_NAME: ${ROUNDCUBEMAIL_DB_NAME:-roundcubemail}
+      ROUNDCUBEMAIL_DB_USER: ${ROUNDCUBEMAIL_DB_USER:-roundcube}
+      ROUNDCUBEMAIL_DB_PASSWORD: ${ROUNDCUBEMAIL_DB_PASSWORD:-change_me_roundcube_db_password}
+      ROUNDCUBEMAIL_DEFAULT_HOST: ${ROUNDCUBEMAIL_DEFAULT_HOST:-ssl://mailserver}
+      ROUNDCUBEMAIL_DEFAULT_PORT: ${ROUNDCUBEMAIL_DEFAULT_PORT:-993}
+      ROUNDCUBEMAIL_SMTP_SERVER: ${ROUNDCUBEMAIL_SMTP_SERVER:-tls://mailserver}
+      ROUNDCUBEMAIL_SMTP_PORT: ${ROUNDCUBEMAIL_SMTP_PORT:-587}
+      ROUNDCUBEMAIL_USERNAME_DOMAIN: ${ROUNDCUBEMAIL_USERNAME_DOMAIN:-itbsstudio.com}
+      ROUNDCUBEMAIL_PRODUCT_NAME: ${ROUNDCUBEMAIL_PRODUCT_NAME:-PNP Mail}
+      ROUNDCUBEMAIL_SKIN: elastic
+      ROUNDCUBEMAIL_PLUGINS: ${ROUNDCUBEMAIL_PLUGINS:-archive,zipdownload,itbs_ai_assistant}
+      ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE: ${ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE:-25M}
+      ITBS_SUPPORT_EMAIL: ${ITBS_SUPPORT_EMAIL:-support@itbsstudio.com}
+      ITBS_BRAND_PRIMARY: ${ITBS_BRAND_PRIMARY:-#0B2E59}
+      ITBS_BRAND_GOLD: ${ITBS_BRAND_GOLD:-#F2C94C}
+      ITBS_BRAND_RED: ${ITBS_BRAND_RED:-#C62828}
+      ITBS_BRAND_NAME: ${ITBS_BRAND_NAME:-PNP Mail}
+      ITBS_AI_TITLE: ${ITBS_AI_TITLE:-PNP Mail AI}
+      ITBS_AI_API_URL: ${ITBS_AI_API_URL:-http://ai-api:8090}
+      ITBS_AI_SHARED_SECRET: ${ITBS_AI_SHARED_SECRET:-change_me_ai_shared_secret}
+    volumes:
+      - ./data/roundcube/db:/var/roundcube/db
+      - ./data/roundcube/temp:/tmp/roundcube-temp
+
+  ai-api:
+    build:
+      context: ./ai-api
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-itbs-pnp-mail}-ai-api
+    restart: unless-stopped
+    ports:
+      - "${AI_API_HTTP_PORT:-8091}:8090"
+    environment:
+      AI_API_PORT: 8090
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      AI_MOCK_MODE: ${AI_MOCK_MODE:-true}
+      AI_SHARED_SECRET: ${ITBS_AI_SHARED_SECRET:-change_me_ai_shared_secret}
+      AI_MAX_INPUT_CHARS: ${AI_MAX_INPUT_CHARS:-12000}
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-60}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  db:
+    image: mariadb:11
+    container_name: ${COMPOSE_PROJECT_NAME:-itbs-pnp-mail}-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change_me_root_password}
+      MARIADB_DATABASE: ${ROUNDCUBEMAIL_DB_NAME:-roundcubemail}
+      MARIADB_USER: ${ROUNDCUBEMAIL_DB_USER:-roundcube}
+      MARIADB_PASSWORD: ${ROUNDCUBEMAIL_DB_PASSWORD:-change_me_roundcube_db_password}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - ./data/mariadb:/var/lib/mysql

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PNP Mail Theme Preview</title>
+  <link rel="stylesheet" href="../roundcube/assets/custom.css" />
+  <style>
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #eef3f8; }
+    .preview-login { min-height: 100vh; display: grid; grid-template-columns: 1fr 430px; }
+    .hero { background: #0B2E59 url('../roundcube/assets/login-bg.svg') center/cover no-repeat; color: white; padding: 70px; display: flex; flex-direction: column; justify-content: center; }
+    .hero h1 { font-size: 54px; margin: 0 0 16px; }
+    .hero p { font-size: 20px; max-width: 620px; line-height: 1.6; opacity: .88; }
+    .card { background: white; margin: auto 40px; padding: 34px; border-radius: 28px; box-shadow: 0 25px 70px rgba(0,0,0,.18); }
+    .card img { width: 100%; max-height: 98px; object-fit: contain; margin-bottom: 24px; }
+    label { display: block; font-weight: 700; color: #0B2E59; margin: 14px 0 8px; }
+    input { width: 100%; box-sizing: border-box; padding: 13px 14px; border-radius: 14px; border: 1px solid rgba(11,46,89,.20); }
+    button { margin-top: 22px; width: 100%; min-height: 48px; border: 0; color: white; font-weight: 800; border-radius: 999px; background: linear-gradient(135deg, #0B2E59, #0F4C81); box-shadow: 0 8px 18px rgba(11,46,89,.22); }
+    .bar { height: 6px; width: 160px; border-radius: 99px; background: linear-gradient(90deg, #F2C94C, #C62828); margin-top: 22px; }
+    @media (max-width: 900px) { .preview-login { grid-template-columns: 1fr; } .hero { min-height: 35vh; padding: 34px; } .hero h1 { font-size: 36px; } .card { margin: -40px 18px 32px; } }
+  </style>
+</head>
+<body>
+  <main class="preview-login">
+    <section class="hero">
+      <h1>PNP Mail</h1>
+      <p>Secure Webmail Portal with a clean navy, gold, red, and white theme. This is only a static preview; Docker runs the real Roundcube app.</p>
+      <div class="bar"></div>
+    </section>
+    <section class="card">
+      <img src="../roundcube/assets/logo.svg" alt="PNP Mail logo" />
+      <label>Username</label>
+      <input value="user@itbsstudio.com" />
+      <label>Password</label>
+      <input type="password" value="password" />
+      <button>Login</button>
+    </section>
+  </main>
+
+<div style="position:fixed;right:24px;bottom:24px;width:340px;background:white;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.22);overflow:hidden;border:1px solid rgba(11,46,89,.18)">
+  <div style="background:#0B2E59;color:white;padding:12px 14px;border-bottom:3px solid #F2C94C;font-weight:800">PNP Mail AI</div>
+  <div style="padding:14px;display:grid;gap:10px">
+    <textarea placeholder="Ask AI about this email..." style="height:70px;border-radius:12px;border:1px solid #d7dce2;padding:10px"></textarea>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <button>Compose</button><button>Reply</button><button>Summarize</button>
+      <button>Translate</button><button>Risk</button><button>Ask</button>
+    </div>
+    <textarea placeholder="AI result..." style="height:90px;border-radius:12px;border:1px solid #d7dce2;padding:10px"></textarea>
+  </div>
+</div>
+</body>
+</html>

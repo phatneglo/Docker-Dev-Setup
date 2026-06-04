@@ -1,0 +1,5 @@
+<?php
+// ITBS AI Assistant plugin config.
+// Values are injected from environment by roundcube/config/itbs-pnp.php.
+$config['itbs_ai_api_url'] = 'http://ai-api:8090';
+$config['itbs_ai_shared_secret'] = '';
