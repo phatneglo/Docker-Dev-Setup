@@ -8,18 +8,19 @@ It includes:
 - Dockerfile
 - Docker Compose
 - Go AI API microservice
+- Go + React mail admin UI
 - Roundcube AI Assistant plugin
 - MariaDB container for Roundcube metadata
 - Custom PNP-style placeholder logo
 - Custom Roundcube Elastic theme overlay
 - `.env` and `.env.example`
-- repo-local `data/` folders for persistent mail and app state
+- repo-local `data/` folders for config/logs/app state plus Docker volumes for mail storage
 - DigitalOcean deployment notes
 - Theme customization guide
 - Validation script
 - AI compose, reply, summarize, translate, ask, and phishing-risk endpoints
 
-The stack now runs its own IMAP/SMTP service, keeps the custom Roundcube layer, and stores all persistent state in local folders that are easy to back up.
+The stack now runs its own IMAP/SMTP service, keeps the custom Roundcube layer, and stores persistent state in local folders plus Docker volumes.
 
 ## Quick start
 
@@ -33,6 +34,12 @@ Open:
 http://localhost:8080
 ```
 
+Mail admin UI:
+
+```text
+http://localhost:8092
+```
+
 The stack bootstraps the first mailbox automatically from `.env`:
 
 ```env
@@ -42,11 +49,21 @@ MAIL_ADMIN_PASSWORD=ChangeMeNow123!
 
 Then log in to Roundcube with that mailbox and password. Use the helper script only for additional mailboxes.
 
+The mail admin UI uses its own admin login from `.env`:
+
+```env
+MAIL_ADMIN_UI_EMAIL=admin@itbsstudio.com
+MAIL_ADMIN_UI_PASSWORD=ChangeMeNow123!
+```
+
+Use it to add mailboxes, reset passwords, delete mailboxes, and set or remove mailbox quotas.
+
 ## Services and ports
 
 ```text
 Roundcube UI:        http://localhost:8080
 AI API host bind:    http://localhost:8091
+Mail admin UI:       http://localhost:8092
 SMTP:                localhost:25
 Submission:          localhost:587
 IMAP:                localhost:143
@@ -55,22 +72,27 @@ SMTPS/IMAPS:         enable after real TLS is configured
 
 ## Persistent data
 
-Everything important is stored under:
+Repo-local config, logs, and app data are stored under:
 
 ```text
 data/
   mailserver/
     config/
-    mail-data/
     mail-logs/
-    mail-state/
   mariadb/
   roundcube/
     db/
     temp/
 ```
 
-Backups are just those folders plus your `.env`.
+Mail messages and mailserver runtime state are stored in Docker named volumes:
+
+```text
+itbs-pnp-mail_mailserver-mail-data
+itbs-pnp-mail_mailserver-mail-state
+```
+
+Backups should include those volumes, the `data/` folders, and your `.env`.
 
 ## Domain plan
 
@@ -128,7 +150,7 @@ Main variables:
 
 ## Production notes
 
-For local/dev, the repo bootstraps one mailbox automatically and Roundcube connects to the internal mailserver over TLS on IMAPS and Submission.
+For local/dev, the repo bootstraps one mailbox automatically and Roundcube connects to the internal mailserver over plain IMAP on the Docker network. Enable real TLS before using IMAPS/SMTPS in production.
 
 For production, you still need proper DNS and a real TLS setup for mail delivery.
 
@@ -139,6 +161,7 @@ MYSQL_ROOT_PASSWORD
 ROUNDCUBEMAIL_DB_PASSWORD
 ROUNDCUBE_DES_KEY
 ITBS_AI_SHARED_SECRET
+MAIL_ADMIN_UI_PASSWORD
 ```
 
 ## Validate the package locally
@@ -165,25 +188,28 @@ POST /v1/ai/summarize
 POST /v1/ai/translate
 POST /v1/ai/phishing
 POST /v1/ai/ask
+POST /v1/ai/chat
 ```
 
-The Roundcube plugin adds a floating **PNP Mail AI** panel inside the mailbox UI.
-It can compose, draft replies, summarize email content, translate, ask questions, and check phishing risk.
+The Roundcube plugin adds a FAB-launched **PNP Mail AI** chat inside the mailbox UI.
+It can compose, draft replies, summarize open or selected email content, translate, ask questions about the current email or recent mailbox context, and check phishing risk. Responses stream into the panel as the AI generates them.
 
 By default, AI runs in mock mode so you can test the UI without paying for API calls:
 
 ```env
-AI_MOCK_MODE=true
+AI_MOCK_MODE=auto
 OPENAI_API_KEY=
 ```
 
 To enable real AI:
 
 ```env
-AI_MOCK_MODE=false
+AI_MOCK_MODE=auto
 OPENAI_API_KEY=your_api_key_here
 AI_MODEL=gpt-4o-mini
 ```
+
+Set `AI_MOCK_MODE=true` only when you want to force mock responses even with an API key configured.
 
 You can also test only the Go API locally:
 

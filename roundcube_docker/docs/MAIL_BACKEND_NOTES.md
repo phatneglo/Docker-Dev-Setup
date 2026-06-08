@@ -11,12 +11,14 @@ db          -> Roundcube metadata database
 ai-api      -> internal AI helper API
 ```
 
+On Docker Desktop/Windows, mail data and Postfix/Dovecot state use Docker named volumes. This avoids queue and mailbox write errors caused by Unix mailserver files living on a Windows bind mount.
+
 Roundcube now talks to the internal `mailserver` service by default:
 
 ```env
-ROUNDCUBEMAIL_DEFAULT_HOST=ssl://mailserver
-ROUNDCUBEMAIL_DEFAULT_PORT=993
-ROUNDCUBEMAIL_SMTP_SERVER=tls://mailserver
+ROUNDCUBEMAIL_DEFAULT_HOST=mailserver
+ROUNDCUBEMAIL_DEFAULT_PORT=143
+ROUNDCUBEMAIL_SMTP_SERVER=mailserver
 ROUNDCUBEMAIL_SMTP_PORT=587
 ```
 
@@ -31,12 +33,12 @@ MAIL_ADMIN_PASSWORD=ChangeMeNow123!
 
 ```text
 data/mailserver/config
-data/mailserver/mail-data
-data/mailserver/mail-state
 data/mailserver/mail-logs
 data/mariadb
 data/roundcube/db
 data/roundcube/temp
+itbs-pnp-mail_mailserver-mail-data Docker volume
+itbs-pnp-mail_mailserver-mail-state Docker volume
 ```
 
 ## Creating mailboxes

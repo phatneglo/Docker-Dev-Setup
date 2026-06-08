@@ -55,7 +55,7 @@ Multiple AI providers
 Edit `.env`:
 
 ```env
-AI_MOCK_MODE=false
+AI_MOCK_MODE=auto
 OPENAI_API_KEY=your_api_key_here
 AI_MODEL=gpt-4o-mini
 ```

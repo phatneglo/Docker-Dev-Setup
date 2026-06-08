@@ -48,8 +48,8 @@ services:
       ENABLE_SPAMASSASSIN: 0
       ONE_DIR: 1
     volumes:
-      - ./data/mailserver/mail-data:/var/mail
-      - ./data/mailserver/mail-state:/var/mail-state
+      - mailserver-mail-data:/var/mail
+      - mailserver-mail-state:/var/mail-state
       - ./data/mailserver/mail-logs:/var/log/mail
       - ./data/mailserver/config:/tmp/docker-mailserver
 
@@ -77,9 +77,9 @@ services:
       ROUNDCUBEMAIL_DB_NAME: ${ROUNDCUBEMAIL_DB_NAME:-roundcubemail}
       ROUNDCUBEMAIL_DB_USER: ${ROUNDCUBEMAIL_DB_USER:-roundcube}
       ROUNDCUBEMAIL_DB_PASSWORD: ${ROUNDCUBEMAIL_DB_PASSWORD:-change_me_roundcube_db_password}
-      ROUNDCUBEMAIL_DEFAULT_HOST: ${ROUNDCUBEMAIL_DEFAULT_HOST:-ssl://mailserver}
-      ROUNDCUBEMAIL_DEFAULT_PORT: ${ROUNDCUBEMAIL_DEFAULT_PORT:-993}
-      ROUNDCUBEMAIL_SMTP_SERVER: ${ROUNDCUBEMAIL_SMTP_SERVER:-tls://mailserver}
+      ROUNDCUBEMAIL_DEFAULT_HOST: ${ROUNDCUBEMAIL_DEFAULT_HOST:-mailserver}
+      ROUNDCUBEMAIL_DEFAULT_PORT: ${ROUNDCUBEMAIL_DEFAULT_PORT:-143}
+      ROUNDCUBEMAIL_SMTP_SERVER: ${ROUNDCUBEMAIL_SMTP_SERVER:-mailserver}
       ROUNDCUBEMAIL_SMTP_PORT: ${ROUNDCUBEMAIL_SMTP_PORT:-587}
       ROUNDCUBEMAIL_USERNAME_DOMAIN: ${ROUNDCUBEMAIL_USERNAME_DOMAIN:-itbsstudio.com}
       ROUNDCUBEMAIL_PRODUCT_NAME: ${ROUNDCUBEMAIL_PRODUCT_NAME:-PNP Mail}
@@ -110,7 +110,7 @@ services:
       AI_API_PORT: 8090
       AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
       AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
-      AI_MOCK_MODE: ${AI_MOCK_MODE:-true}
+      AI_MOCK_MODE: ${AI_MOCK_MODE:-auto}
       AI_SHARED_SECRET: ${ITBS_AI_SHARED_SECRET:-change_me_ai_shared_secret}
       AI_MAX_INPUT_CHARS: ${AI_MAX_INPUT_CHARS:-12000}
       AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-60}
@@ -120,6 +120,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  mail-admin:
+    build:
+      context: ./mail-admin
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-itbs-pnp-mail}-mail-admin
+    restart: unless-stopped
+    depends_on:
+      mailserver:
+        condition: service_started
+    ports:
+      - "${MAIL_ADMIN_UI_PORT:-8092}:8092"
+    environment:
+      MAIL_ADMIN_UI_PORT: 8092
+      MAIL_ADMIN_UI_EMAIL: ${MAIL_ADMIN_UI_EMAIL:-admin@itbsstudio.com}
+      MAIL_ADMIN_UI_PASSWORD: ${MAIL_ADMIN_UI_PASSWORD:-ChangeMeNow123!}
+      MAIL_ADMIN_COOKIE_SECURE: ${MAIL_ADMIN_COOKIE_SECURE:-false}
+      MAIL_DOMAIN: ${MAIL_DOMAIN:-itbsstudio.com}
+      MAILSERVER_CONTAINER: ${MAILSERVER_CONTAINER:-itbs-pnp-mail-mailserver}
+      MAILSERVER_CONFIG_DIR: /mailserver-config
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/mailserver/config:/mailserver-config:ro
 
   db:
     image: mariadb:11
@@ -137,3 +160,7 @@ services:
       retries: 10
     volumes:
       - ./data/mariadb:/var/lib/mysql
+
+volumes:
+  mailserver-mail-data:
+  mailserver-mail-state:

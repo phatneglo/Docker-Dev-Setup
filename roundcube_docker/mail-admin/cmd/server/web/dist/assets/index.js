@@ -1,0 +1,1 @@
+document.getElementById('root').innerHTML='<main style="font-family:sans-serif;padding:2rem;color:#fff;background:#101820;min-height:100vh"><h1>PNP Mail Admin</h1><p>The production UI is built during Docker build.</p></main>';
