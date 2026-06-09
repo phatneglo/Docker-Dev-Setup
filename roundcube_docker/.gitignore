@@ -1,2 +1,10 @@
 mail-admin/web/node_modules/
 mail-admin/web/.vite/
+.env
+local.env
+remote.env
+*.local.env
+*.remote.env
+!.env.example
+!local.env.example
+!remote.env.example

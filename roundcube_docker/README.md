@@ -13,9 +13,10 @@ It includes:
 - MariaDB container for Roundcube metadata
 - Custom PNP-style placeholder logo
 - Custom Roundcube Elastic theme overlay
-- `.env` and `.env.example`
+- `.env.example`, `local.env.example`, and `remote.env.example`
 - repo-local `data/` folders for config/logs/app state plus Docker volumes for mail storage
 - DigitalOcean deployment notes
+- AWS + Cloudflare DNS setup guide
 - Theme customization guide
 - Validation script
 - AI compose, reply, summarize, translate, ask, and phishing-risk endpoints
@@ -24,8 +25,11 @@ The stack now runs its own IMAP/SMTP service, keeps the custom Roundcube layer, 
 
 ## Quick start
 
+Local development:
+
 ```bash
-docker compose up -d --build
+cp local.env.example local.env
+docker compose --env-file local.env up -d --build
 ```
 
 Open:
@@ -40,7 +44,17 @@ Mail admin UI:
 http://localhost:8092
 ```
 
-The stack bootstraps the first mailbox automatically from `.env`:
+AWS EC2 production template:
+
+```bash
+cp remote.env.example remote.env
+nano remote.env
+docker compose --env-file remote.env up -d --build
+```
+
+Keep `local.env`, `remote.env`, and `.env` out of git. Only the `.example` templates should be committed.
+
+The stack bootstraps the first mailbox automatically from your selected env file:
 
 ```env
 MAIL_ADMIN_ADDRESS=admin@itbsstudio.com
@@ -49,7 +63,7 @@ MAIL_ADMIN_PASSWORD=ChangeMeNow123!
 
 Then log in to Roundcube with that mailbox and password. Use the helper script only for additional mailboxes.
 
-The mail admin UI uses its own admin login from `.env`:
+The mail admin UI uses its own admin login from your selected env file:
 
 ```env
 MAIL_ADMIN_UI_EMAIL=admin@itbsstudio.com
@@ -92,7 +106,7 @@ itbs-pnp-mail_mailserver-mail-data
 itbs-pnp-mail_mailserver-mail-state
 ```
 
-Backups should include those volumes, the `data/` folders, and your `.env`.
+Backups should include those volumes, the `data/` folders, and your active env file.
 
 ## Domain plan
 
@@ -107,6 +121,8 @@ api.mail.itbsstudio.com   -> optional external AI/API hostname
 
 ```text
 .env
+local.env.example
+remote.env.example
 data/mailserver/config
 roundcube/assets/custom.css
 roundcube/assets/logo.svg
@@ -228,6 +244,7 @@ curl http://localhost:8091/healthz
 See:
 
 ```text
+docs/AWS_CLOUDFLARE_DNS_SETUP.md
 docs/AI_INTEGRATION_PLAN.md
 docs/GO_AI_API.md
 docs/MAIL_BACKEND_NOTES.md

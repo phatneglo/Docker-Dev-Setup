@@ -31,7 +31,8 @@ $config['prefer_html'] = true;
 $config['htmleditor'] = 1;
 
 // Safer defaults for production-style deployments.
-$config['force_https'] = false; // Put Cloudflare/Nginx/Traefik HTTPS in front and set this true only when ready.
+$forceHttps = strtolower((string) getenv('ROUNDCUBE_FORCE_HTTPS'));
+$config['force_https'] = in_array($forceHttps, ['1', 'true', 'yes', 'on'], true);
 $config['x_frame_options'] = 'sameorigin';
 $config['des_key'] = getenv('ROUNDCUBE_DES_KEY') ?: 'change_this_24_char_key!!';
 

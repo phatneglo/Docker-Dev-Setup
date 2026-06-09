@@ -52,6 +52,7 @@ services:
       - mailserver-mail-state:/var/mail-state
       - ./data/mailserver/mail-logs:/var/log/mail
       - ./data/mailserver/config:/tmp/docker-mailserver
+      - ./data/letsencrypt:/etc/letsencrypt:ro
 
   roundcube:
     build:
@@ -86,6 +87,8 @@ services:
       ROUNDCUBEMAIL_SKIN: elastic
       ROUNDCUBEMAIL_PLUGINS: ${ROUNDCUBEMAIL_PLUGINS:-archive,zipdownload,itbs_ai_assistant}
       ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE: ${ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE:-25M}
+      ROUNDCUBE_DES_KEY: ${ROUNDCUBE_DES_KEY:-change_this_24_char_key!!}
+      ROUNDCUBE_FORCE_HTTPS: ${ROUNDCUBE_FORCE_HTTPS:-false}
       ITBS_SUPPORT_EMAIL: ${ITBS_SUPPORT_EMAIL:-support@itbsstudio.com}
       ITBS_BRAND_PRIMARY: ${ITBS_BRAND_PRIMARY:-#0B2E59}
       ITBS_BRAND_GOLD: ${ITBS_BRAND_GOLD:-#F2C94C}
