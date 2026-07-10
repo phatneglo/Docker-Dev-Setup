@@ -1,6 +1,6 @@
 services:
   pg-0:
-    image: bitnamilegacy/postgresql-repmgr:17.6.0
+    image: soldevelo/postgresql-repmgr:17.6.0
     container_name: postgres-wal-pg-0
     restart: unless-stopped
     env_file:
@@ -43,7 +43,7 @@ services:
       retries: 6
 
   pg-1:
-    image: bitnamilegacy/postgresql-repmgr:17.6.0
+    image: soldevelo/postgresql-repmgr:17.6.0
     container_name: postgres-wal-pg-1
     restart: unless-stopped
     depends_on:
@@ -89,7 +89,7 @@ services:
       retries: 6
 
   pg-2:
-    image: bitnamilegacy/postgresql-repmgr:17.6.0
+    image: soldevelo/postgresql-repmgr:17.6.0
     container_name: postgres-wal-pg-2
     restart: unless-stopped
     depends_on:
@@ -135,7 +135,7 @@ services:
       retries: 6
 
   pgpool:
-    image: bitnamilegacy/pgpool:4
+    image: soldevelo/pgpool:4.6
     container_name: postgres-wal-pgpool
     restart: unless-stopped
     depends_on:
